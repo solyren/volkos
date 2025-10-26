@@ -1,3 +1,4 @@
+import { InputFile } from 'grammy';
 import { createLogger } from '../../logger.js';
 import { getUserSocket } from '../../whatsapp/socket-pool.js';
 import { fetchBioForUser } from '../../whatsapp/utils.js';
@@ -333,21 +334,17 @@ export const handleBioPhoneInput = async (ctx) => {
 
         const withBioTxt = generateWithBioTxt(results);
         const withBioBuffer = globalThis.Buffer.from(withBioTxt, 'utf-8');
-        await ctx.replyWithDocument({
-          source: withBioBuffer,
-          filename: `with_bio_${Date.now()}.txt`,
-        }, {
-          caption: '✅ Nomor dengan bio',
-        });
+        await ctx.replyWithDocument(
+          new InputFile(withBioBuffer, `with_bio_${Date.now()}.txt`),
+          { caption: '✅ Nomor dengan bio' },
+        );
 
         const noBioTxt = generateNoBioTxt(results);
         const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
-        await ctx.replyWithDocument({
-          source: noBioBuffer,
-          filename: `no_bio_${Date.now()}.txt`,
-        }, {
-          caption: '❌ Nomor tanpa bio / failed',
-        });
+        await ctx.replyWithDocument(
+          new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
+          { caption: '❌ Nomor tanpa bio / failed' },
+        );
       }
     }
 

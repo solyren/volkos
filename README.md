@@ -89,44 +89,95 @@ Send `/start` to [@userinfobot](https://t.me/userinfobot) to get your User ID.
 
 ## 📱 User Commands
 
-All users can access these commands:
+### Getting Started
 
-| Command | Description |
-|---------|-------------|
-| `/start` | Start the bot and see available options |
-| `/help` | Display help information |
-| `/pair` | Begin WhatsApp pairing process |
-| `/status` | Check your connection status |
-| `/disconnect` | Disconnect your WhatsApp account |
+1. **Send `/start`** to initialize your account
+   - Owners are auto-detected and get full admin access
+   - New users automatically get a 24-hour trial
+   - You'll see a menu with available actions
+
+### Interactive Menu System
+
+The bot uses a modern button-based interface instead of typing commands:
+
+**For Regular Users:**
+- 📱 **Pair WhatsApp** - Start the pairing process
+- 📊 **Status** - Check your connection status
+- ❌ **Disconnect** - Remove WhatsApp pairing
+- ❓ **Help** - Display help information
+
+**For Owners (Admins):**
+- 🛠️ **Owner Panel** - Access admin functions
+- 📱 **Pairing** - Manage pairing for your account
+- 👥 **View Users** - List all users and their statuses
+- ➕ **Add User** - Create new trial or permanent users
+- 📊 **System Status** - See system statistics
 
 ### Pairing Workflow
 
-1. Send `/pair` to the bot
-2. Enter your WhatsApp phone number with country code (e.g., `+62812345678`)
-3. The bot displays a pairing code
-4. Open WhatsApp → **Settings** → **Linked Devices** → **Link a Device**
-5. Scan the QR code or enter the pairing code
-6. Wait for confirmation message
+1. Click **📱 Pair WhatsApp** button (or send `/pair`)
+2. Enter your WhatsApp phone number with country code:
+   ```
+   Example: +62812345678
+   ```
+3. The bot generates a pairing code (e.g., `VOLKSBOT`)
+4. Open WhatsApp on your phone:
+   - Go to **Settings** → **Linked Devices** → **Link a Device**
+   - Scan the QR code displayed in Telegram
+   - Or manually enter the pairing code if needed
+5. Confirm the pairing by scanning/entering the code
+6. Wait for confirmation: `✅ VOLKSBOT Connected!`
 
 ## 👑 Admin Commands
 
-Owner-only commands for managing users and the system:
+Owner-only features accessible via the **🛠️ Owner Panel** button. No need to type commands!
 
-| Command | Description |
-|---------|-------------|
-| `/admin_users` | List all users with roles and pairing status |
-| `/admin_add_user <userId> <role>` | Create new user (roles: `trial`, `user`, `owner`) |
-| `/admin_remove_user <userId>` | Delete user and disconnect WhatsApp |
-| `/admin_set_role <userId> <role>` | Change user's role |
-| `/admin_set_expiry <userId> <days>` | Set expiry date (0 = permanent) |
-| `/admin_remove_pairing <userId>` | Remove WhatsApp pairing for user |
-| `/admin_status` | Display system statistics |
+### Admin Panel Features
 
-### User Roles
+**User Management:**
+- **👥 View Users** - See all users with their:
+  - Telegram ID
+  - Role (Trial, User, or Owner)
+  - WhatsApp phone number
+  - Account status (Active/Inactive)
 
-- **Owner**: Full access to all features and admin commands
-- **User**: Permanent access to pairing and messaging
-- **Trial**: 24-hour limited access, auto-expires
+- **➕ Add User** - Create new users:
+  1. Click **➕ Add User**
+  2. Enter user's Telegram ID (numeric)
+  3. Select role: 
+     - `trial (1 day)` - Limited 24-hour access
+     - `user (permanent)` - Unlimited access
+     - `owner` - Full admin access
+
+**System Information:**
+- **📊 System Status** - View statistics:
+  - Total users count
+  - Active users (not expired)
+  - WhatsApp paired users
+  - Trial vs permanent user breakdown
+
+### User Roles Explained
+
+- **Owner** 👑
+  - Full admin access
+  - Can manage all users
+  - Can add/remove users
+  - View system statistics
+  - Unrestricted pairing access
+
+- **User** 👤
+  - Permanent access
+  - Can pair WhatsApp
+  - Can relay messages
+  - No expiration date
+  - Cannot access admin features
+
+- **Trial** ⏳
+  - 24-hour limited access
+  - Can pair WhatsApp
+  - Can relay messages
+  - Auto-expires after 24 hours
+  - Cannot access admin features
 
 ## ✨ Features
 
@@ -136,6 +187,8 @@ Owner-only commands for managing users and the system:
 - ✅ Real-time message relay between Telegram and WhatsApp
 - ✅ Connection status monitoring
 - ✅ Automatic trial expiration (24-hour limit)
+- ✅ Interactive button-based UI (no command typing needed)
+- ✅ VOLKSBOT custom pairing code (always "VOLKSBOT")
 
 ### Architecture
 - ✅ Per-user socket pooling for WhatsApp
@@ -149,6 +202,80 @@ Owner-only commands for managing users and the system:
 - ✅ Graceful error handling
 - ✅ Detailed logging with pino
 - ✅ Type-safe configuration
+
+## 🔄 How It Works
+
+### Session Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│              VOLKOS BOT ARCHITECTURE                │
+└─────────────────────────────────────────────────────┘
+
+User (Telegram)
+      │
+      ├─► Telegram Bot (grammY)
+      │    ├─ Session management
+      │    ├─ Button/menu routing
+      │    └─ Message handling
+      │
+      ├─► Redis Database (Upstash)
+      │    ├─ User profiles
+      │    ├─ Role assignments
+      │    └─ Session state
+      │
+      └─► WhatsApp Socket Pool
+           ├─ Per-user socket
+           ├─ Session persistence
+           └─ Message relay
+```
+
+### Pairing Process (Detailed Flow)
+
+1. **User clicks "📱 Pair WhatsApp"**
+   - Bot creates empty session for user
+   - Telegram waits for phone input
+
+2. **User enters phone number (+62812345678)**
+   - Bot validates phone format
+   - Creates unique WhatsApp socket for user
+   - Initializes 8-second connection delay
+
+3. **Bot requests pairing code**
+   - Calls Baileys `requestPairingCode()`
+   - Generates "VOLKSBOT" pairing code
+   - Displays QR code to user
+
+4. **User scans/enters code in WhatsApp**
+   - WhatsApp validates code
+   - Creates linked device session
+
+5. **Connection established**
+   - Socket authenticates
+   - Bot sends: `✅ VOLKSBOT Connected!`
+   - User's WhatsApp phone saved to Redis
+   - Session becomes persistent
+
+6. **Session persistence**
+   - Credentials stored in `auth_info/{userId}/session/`
+   - Bot restart automatically reconnects
+   - No re-pairing needed!
+
+### Message Relay Flow
+
+```
+WhatsApp Message
+      │
+      └─► Baileys Socket (per-user)
+           │
+           └─► Event: messages.upsert
+                │
+                └─► Message Handler
+                     │
+                     └─► Telegram Bot
+                          │
+                          └─► User receives message
+```
 
 ## 👨‍💻 Development
 

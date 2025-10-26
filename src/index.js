@@ -4,6 +4,7 @@ import { createBot, startBot } from './telegram/bot.js';
 import { autoConnectAllUsers } from './whatsapp/socket-pool.js';
 import { initRedis } from './db/redis.js';
 import { startTrialExpiryJob } from './jobs/trial-expiry.js';
+import { cleanupCorruptKeys } from './db/cleanup.js';
 
 const log = createLogger('Main');
 
@@ -17,8 +18,13 @@ const main = async () => {
     log.info('Initializing Redis connection...');
     initRedis();
 
-    log.info('Checking for existing WhatsApp credentials...');
-    await autoConnectAllUsers();
+    log.info('Cleaning up corrupt Redis keys...');
+    await cleanupCorruptKeys();
+
+    log.info('Starting WhatsApp auto-reconnect in background...');
+    autoConnectAllUsers().catch((err) => {
+      log.error({ error: err }, 'Error during background auto-connect');
+    });
 
     log.info('Starting trial expiry background job...');
     startTrialExpiryJob();

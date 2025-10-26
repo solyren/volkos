@@ -5,6 +5,8 @@ export const ownerMainMenu = () => {
   return new Keyboard()
     .text('🛠️ Owner Panel')
     .text('📱 Pairing')
+    .row()
+    .text('🔍 Check Bio')
     .resized();
 };
 
@@ -14,9 +16,10 @@ export const ownerPanelMenu = () => {
     .text('👥 View Users')
     .text('➕ Add User')
     .row()
+    .text('🔍 Check Bio')
     .text('📊 System Status')
-    .text('❓ Help')
     .row()
+    .text('❓ Help')
     .text('🔙 Back')
     .resized();
 };
@@ -27,9 +30,10 @@ export const ownerPairingMenu = () => {
     .text('📱 Pair WhatsApp')
     .text('📊 Status')
     .row()
+    .text('🔍 Check Bio')
     .text('❌ Disconnect')
-    .text('❓ Help')
     .row()
+    .text('❓ Help')
     .text('🔙 Back')
     .resized();
 };
@@ -45,9 +49,10 @@ export const userMainMenu = () => {
     .text('📱 Pair WhatsApp')
     .text('📊 Status')
     .row()
+    .text('🔍 Check Bio')
     .text('❌ Disconnect')
-    .text('❓ Help')
     .row()
+    .text('❓ Help')
     .text('🔙 Cancel')
     .resized();
 };

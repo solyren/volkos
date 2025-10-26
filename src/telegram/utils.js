@@ -50,8 +50,8 @@ export const formatPairingMessage = (code, phone) => {
   message += '2️⃣ Settings → Linked Devices\n';
   message += '3️⃣ Tap "Link a Device"\n';
   message += '4️⃣ Enter code above\n';
-  message += '5️⃣ Done!\n\n';
-  message += '⏳ Bot will notify when connected';
+  message += '5️⃣ Wait for connection confirmation\n\n';
+  message += '⏳ Do not proceed until bot shows "✅ VOLKSBOT Connected!"';
 
   return message;
 };

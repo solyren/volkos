@@ -78,16 +78,17 @@ export const handleStartCommand = async (ctx) => {
 export const handleHelpCommand = async (ctx) => {
   try {
     const message = '*VOLKOS Bot Help*\n\n' +
-      '*Commands:*\n' +
-      '/pair - Start pairing with WhatsApp\n' +
-      '/status - Show your connection status\n' +
-      '/disconnect - Disconnect WhatsApp\n' +
-      '/help - Show this message\n\n' +
-      '*How to use:*\n' +
-      '1. Use /pair to start\n' +
-      '2. Enter your phone number\n' +
-      '3. Scan the pairing code in WhatsApp\n' +
-      '4. Messages will be relayed automatically';
+      '*Available Features:*\n' +
+      '📱 Pair WhatsApp - Link your WhatsApp account\n' +
+      '📊 Status - Check your connection status\n' +
+      '🔍 Check Bio - Check single or multiple numbers\n' +
+      '❌ Disconnect - Remove WhatsApp pairing\n\n' +
+      '*How to use Check Bio:*\n' +
+      '• Send 1 number → Single check\n' +
+      '• Send multiple numbers → Bulk check\n' +
+      '• Upload .txt file → Bulk check\n' +
+      '• ≤10 numbers (text) → Result in message\n' +
+      '• >10 numbers OR file → 2 .txt files';
 
     await ctx.reply(message, { parse_mode: 'Markdown' });
   } catch (error) {

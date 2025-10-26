@@ -9,19 +9,19 @@ import { handleConnectionUpdate, handleCredsUpdate } from './handlers/connection
 import { handleMessagesUpsert } from './handlers/messages.js';
 import { formatPhoneNumber } from './utils.js';
 import { socketPool } from '../db/sockets.js';
-import { setWhatsAppPairing, removeWhatsAppPairing } from '../db/users.js';
+import { removeWhatsAppPairing } from '../db/users.js';
 import { getUserAuthPath, deleteUserAuth } from './auth-manager.js';
 
 const log = createLogger('WhatsAppSocketPool');
 
 // -- createUserSocket --
-export const createUserSocket = async (userId) => {
+export const createUserSocket = async (userId, phoneNumber = null) => {
   try {
     const userAuthPath = getUserAuthPath(userId);
     const { state, saveCreds } = await useMultiFileAuthState(userAuthPath);
     const { version } = await fetchLatestBaileysVersion();
 
-    log.info(`Creating WhatsApp socket for user ${userId}`, { version: version.join('.') });
+    log.info(`[DEBUG] Creating socket for user ${userId}, phoneNumber param: ${phoneNumber}`);
 
     const socket = makeWASocket({
       version,
@@ -37,9 +37,21 @@ export const createUserSocket = async (userId) => {
 
     socket.userId = userId;
 
+    let derivedPhoneNumber = phoneNumber;
+    if (!derivedPhoneNumber && state.creds?.me?.id) {
+      derivedPhoneNumber = state.creds.me.id.split(':')[0];
+      log.info(`[DEBUG] Derived phone from creds: ${derivedPhoneNumber}`);
+    } else if (derivedPhoneNumber) {
+      log.info(`[DEBUG] Using provided phone: ${derivedPhoneNumber}`);
+    } else {
+      log.warn(`[DEBUG] NO PHONE NUMBER for user ${userId}!`);
+    }
+
     socket.ev.on('creds.update', (update) => handleCredsUpdate(update, saveCreds));
     socket.ev.on('connection.update', (update) => {
-      handleConnectionUpdate(update, () => createUserSocket(userId), socket, userId);
+      log.info(`[DEBUG] Connection update for ${userId}, passing phone: ${derivedPhoneNumber}`);
+      const reconnectFn = () => createUserSocket(userId, derivedPhoneNumber);
+      handleConnectionUpdate(update, reconnectFn, socket, userId, derivedPhoneNumber);
     });
     socket.ev.on('messages.upsert', (messages) => handleMessagesUpsert(messages, socket, userId));
 
@@ -56,9 +68,10 @@ export const createUserSocket = async (userId) => {
 export const requestPairingCodeForUser = async (userId, phoneNumber) => {
   try {
     let socket = socketPool.getSocket(userId);
+    const formatted = formatPhoneNumber(phoneNumber);
 
     if (!socket) {
-      socket = await createUserSocket(userId);
+      socket = await createUserSocket(userId, formatted);
       log.info(`Waiting 8 seconds for socket initialization for user ${userId}`);
       await new Promise((resolve) => {
         // eslint-disable-next-line no-undef
@@ -66,7 +79,6 @@ export const requestPairingCodeForUser = async (userId, phoneNumber) => {
       });
     }
 
-    const formatted = formatPhoneNumber(phoneNumber);
     log.info(`Requesting pairing code for user ${userId}: ${formatted}`);
 
     const customCode = config.whatsapp.customPairingCode;
@@ -100,17 +112,36 @@ export const isUserSocketConnected = (userId) => {
 // -- disconnectUserSocket --
 export const disconnectUserSocket = async (userId) => {
   try {
+    log.info(`[DEBUG] Starting disconnect for user ${userId}`);
     const socket = socketPool.getSocket(userId);
 
     if (socket) {
-      socket.logout();
+      try {
+        log.info(`[DEBUG] Attempting socket.logout() for user ${userId}`);
+        await socket.logout();
+        log.info(`[DEBUG] socket.logout() SUCCESS for user ${userId}`);
+      } catch (logoutError) {
+        const msg = 'socket.logout() failed, device may be already removed. Continuing cleanup...';
+        log.warn({ error: logoutError }, `[DEBUG] ${msg}`);
+      }
+
+      log.info(`[DEBUG] Cleaning up resources for user ${userId}`);
       socketPool.removeSocket(userId);
+
+      await removeWhatsAppPairing(userId);
+      log.info(`[DEBUG] Database whatsappPaired cleared for user ${userId}`);
+
+      await deleteUserAuth(userId);
+      log.info(`[DEBUG] Auth files deleted for user ${userId}`);
+
+      log.info(`WhatsApp socket disconnected and cleaned for user ${userId}`);
+    } else {
+      log.warn(`[DEBUG] No socket found for user ${userId}, cleaning up database only`);
       await removeWhatsAppPairing(userId);
       await deleteUserAuth(userId);
-      log.info(`WhatsApp socket disconnected for user ${userId}`);
     }
   } catch (error) {
-    log.error({ error }, `Error disconnecting socket for user ${userId}`);
+    log.error({ error }, `Critical error during disconnect for user ${userId}`);
   }
 };
 
@@ -140,15 +171,26 @@ export const autoConnectUserSocket = async (userId) => {
     const { state: authState } = await useMultiFileAuthState(userAuthPath);
     const isPaired = authState.creds && authState.creds.registered;
 
-    if (isPaired) {
-      log.info(`Auto-connecting WhatsApp socket for user ${userId}`);
-      await createUserSocket(userId);
-      const phoneNumber = authState.creds.me.jid.split('@')[0];
-      await setWhatsAppPairing(userId, phoneNumber);
-      log.info(`WhatsApp auto-reconnected for user ${userId}`);
+    if (!isPaired) {
+      log.debug(`No paired credentials found for user ${userId}`);
+      return;
     }
+
+    const phoneNumber =
+      authState.creds.me?.id?.split(':')[0] ||
+      authState.creds.me?.jid?.split('@')[0];
+
+    if (!phoneNumber) {
+      log.warn(`Could not extract phone number from creds for user ${userId}`);
+      return;
+    }
+
+    log.info(`Auto-connecting WhatsApp socket for user ${userId} with phone ${phoneNumber}`);
+    await createUserSocket(userId, phoneNumber);
+
+    log.info(`Auto-connect initiated for user ${userId}, connection handler will update database`);
   } catch (error) {
-    log.debug({ error }, `Error during auto-connect for user ${userId}`);
+    log.warn({ error }, `Error during auto-connect for user ${userId}`);
   }
 };
 
@@ -158,17 +200,39 @@ export const autoConnectAllUsers = async () => {
     const { getAllUsers } = await import('../db/users.js');
     const users = await getAllUsers();
 
-    for (const user of users) {
-      if (user.whatsappPaired && user.isActive) {
-        try {
-          await autoConnectUserSocket(user.userId);
-        } catch (error) {
-          log.warn({ error }, `Failed to auto-connect user ${user.userId}`);
-        }
+    log.info(`[DEBUG] Checking ${users.length} total users for auto-connect`);
+
+    const activeUsers = users.filter((user) => user.isActive);
+    log.info(`[DEBUG] Found ${activeUsers.length} active users`);
+
+    const usersToConnect = [];
+    for (const user of activeUsers) {
+      const hasCreds = await checkIfUserPaired(user.userId);
+      const paired = user.whatsappPaired;
+      log.info(`[DEBUG] User ${user.userId}: paired=${paired}, hasCreds=${hasCreds}`);
+
+      if (hasCreds) {
+        usersToConnect.push(user);
       }
     }
 
-    log.info('Auto-connect check completed for all users');
+    if (usersToConnect.length === 0) {
+      log.info('[DEBUG] No users with valid credentials found for auto-connect');
+      return;
+    }
+
+    log.info(`[DEBUG] Auto-connecting ${usersToConnect.length} users with valid credentials...`);
+
+    const results = await Promise.allSettled(
+      usersToConnect.map((user) => autoConnectUserSocket(user.userId)),
+    );
+
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    log.info(
+      `Auto-connect completed: ${successful} connected, ${failed} failed`,
+    );
   } catch (error) {
     log.error({ error }, 'Error during auto-connect for all users');
   }

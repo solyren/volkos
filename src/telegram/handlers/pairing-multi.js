@@ -15,14 +15,19 @@ export const handlePairCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (user?.whatsappPaired) {
-      await ctx.reply('❌ You already have a WhatsApp number paired. Use /disconnect first.');
+      await ctx.reply(
+        '❌ You already have a WhatsApp number paired. Press ❌ Disconnect button first.',
+      );
       return;
     }
 
+    log.info(`Starting fresh pairing for user ${userId}, deleting old auth`);
     await deleteUserAuth(userId);
-    await ctx.reply(
-      'Please enter your WhatsApp phone number with country code (e.g., +62812345678):',
-    );
+    socketPool.removeSocket(userId);
+
+    const msg = 'Please enter your WhatsApp phone number with country code ' +
+      '(e.g., +62812345678):';
+    await ctx.reply(msg);
     ctx.session.waitingForPhone = true;
   } catch (error) {
     log.error({ error }, 'Error in pair command');

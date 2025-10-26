@@ -1,15 +1,34 @@
 import { createLogger } from '../../logger.js';
-import { state } from '../../bridge/state.js';
-import { formatStatusMessage } from '../utils.js';
+import { getUser } from '../../db/users.js';
+import { isUserSocketConnected } from '../../whatsapp/socket-pool.js';
+import { ownerMainMenu, userMainMenu } from '../keyboards.js';
 
 const log = createLogger('TelegramMessages');
 
 // -- handleStatusCommand --
 export const handleStatusCommand = async (ctx) => {
   try {
-    const status = state.getStatus();
-    await ctx.reply(formatStatusMessage(status), { parse_mode: 'Markdown' });
-    log.debug('Status command executed');
+    const userId = ctx.from?.id;
+    const user = await getUser(userId);
+
+    if (!user) {
+      await ctx.reply('❌ User profile not found');
+      return;
+    }
+
+    const whatsappConnected = isUserSocketConnected(userId);
+    const role = user.role.toUpperCase();
+    const phoneStatus = user.whatsappPhone ? `✅ ${user.whatsappPhone}` : '❌ Not paired';
+    const connectionStatus = whatsappConnected ? '✅ Connected' : '❌ Disconnected';
+
+    const message = '📊 *Your Status:*\n\n' +
+      `Role: *${role}*\n` +
+      `WhatsApp: ${phoneStatus}\n` +
+      `Connection: ${connectionStatus}\n` +
+      `Active: ${user.isActive ? '✅' : '❌'}`;
+
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+    log.debug(`Status command executed for user ${userId}`);
   } catch (error) {
     log.error({ error }, 'Error in status command');
     await ctx.reply('❌ Error retrieving status');
@@ -19,20 +38,37 @@ export const handleStatusCommand = async (ctx) => {
 // -- handleStartCommand --
 export const handleStartCommand = async (ctx) => {
   try {
-    const message = `
-Welcome to VOLKOS Bot! 🤖
+    const userId = ctx.from?.id;
+    const ownerId = Number(process.env.TELEGRAM_ADMIN_ID);
+    const isOwner = userId === ownerId;
+    const { createUser, updateUser } = await import('../../db/users.js');
+    let user = await getUser(userId);
 
-Available commands:
-/pair - Pair WhatsApp account
-/status - Check connection status
-/disconnect - Disconnect WhatsApp
-/help - Show this message
+    if (!user) {
+      const role = isOwner ? 'owner' : 'trial';
+      const msg = isOwner ? `Owner detected: ${userId}` : `New trial user: ${userId}`;
+      log.info(msg);
+      await createUser(userId, role, isOwner ? null : 1);
+      user = { userId, role, isNew: true };
+    } else if (isOwner && user.role !== 'owner') {
+      log.info(`Updating user ${userId} role to owner`);
+      await updateUser(userId, { role: 'owner' });
+      user.role = 'owner';
+    }
 
-This bot bridges Telegram and WhatsApp messages.
-    `.trim();
+    if (user.role === 'owner') {
+      const message = '👋 Welcome, Owner!\n\nSelect what you want to do:';
+      await ctx.reply(message, {
+        reply_markup: ownerMainMenu(),
+      });
+    } else {
+      const message = 'Welcome to VOLKOS Bot!\n\nSelect an action:';
+      await ctx.reply(message, {
+        reply_markup: userMainMenu(),
+      });
+    }
 
-    await ctx.reply(message);
-    log.info(`User ${ctx.from.id} started bot`);
+    log.info(`User ${userId} started bot (role: ${user.role})`);
   } catch (error) {
     log.error({ error }, 'Error in start command');
   }
@@ -41,22 +77,17 @@ This bot bridges Telegram and WhatsApp messages.
 // -- handleHelpCommand --
 export const handleHelpCommand = async (ctx) => {
   try {
-    const message = `
-*VOLKOS Bot Help*
-
-*Commands:*
-/pair - Start pairing with WhatsApp
-/status - Show current connection status
-/disconnect - Disconnect WhatsApp
-/help - Show this message
-
-*How to use:*
-1. Use /pair to start
-2. Enter your phone number
-3. Scan the pairing code in WhatsApp
-4. Messages will be relayed automatically
-
-    `.trim();
+    const message = '*VOLKOS Bot Help*\n\n' +
+      '*Commands:*\n' +
+      '/pair - Start pairing with WhatsApp\n' +
+      '/status - Show your connection status\n' +
+      '/disconnect - Disconnect WhatsApp\n' +
+      '/help - Show this message\n\n' +
+      '*How to use:*\n' +
+      '1. Use /pair to start\n' +
+      '2. Enter your phone number\n' +
+      '3. Scan the pairing code in WhatsApp\n' +
+      '4. Messages will be relayed automatically';
 
     await ctx.reply(message, { parse_mode: 'Markdown' });
   } catch (error) {

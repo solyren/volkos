@@ -3,7 +3,7 @@ import { createLogger } from '../../logger.js';
 const log = createLogger('WAMessages');
 
 // -- handleMessagesUpsert --
-export const handleMessagesUpsert = async (messages, _sock) => {
+export const handleMessagesUpsert = async (messages, _sock, userId) => {
   for (const msg of messages.messages) {
     if (!msg.message || msg.key.fromMe) {
       continue;
@@ -14,7 +14,7 @@ export const handleMessagesUpsert = async (messages, _sock) => {
       const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
 
       if (text) {
-        log.info({ sender }, `Message received: ${text.substring(0, 50)}`);
+        log.info({ sender, userId }, `Message received: ${text.substring(0, 50)}`);
       }
     } catch (error) {
       log.error({ error }, 'Error handling message');

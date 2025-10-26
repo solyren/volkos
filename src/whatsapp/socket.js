@@ -59,6 +59,7 @@ export const requestPairingCode = async (phoneNumber) => {
     log.info(`Requesting pairing code for ${formatted}`);
 
     await new Promise((resolve) => {
+      // eslint-disable-next-line no-undef
       setTimeout(resolve, 1500);
     });
 

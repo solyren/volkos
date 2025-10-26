@@ -1,8 +1,9 @@
 import { createLogger } from './logger.js';
 import { validateConfig } from './config.js';
 import { createBot, startBot } from './telegram/bot.js';
-import { autoConnectWhatsApp } from './whatsapp/socket.js';
-import { state } from './bridge/state.js';
+import { autoConnectAllUsers } from './whatsapp/socket-pool.js';
+import { initRedis } from './db/redis.js';
+import { startTrialExpiryJob } from './jobs/trial-expiry.js';
 
 const log = createLogger('Main');
 
@@ -13,12 +14,16 @@ const main = async () => {
 
     validateConfig();
 
+    log.info('Initializing Redis connection...');
+    initRedis();
+
     log.info('Checking for existing WhatsApp credentials...');
-    await autoConnectWhatsApp();
+    await autoConnectAllUsers();
+
+    log.info('Starting trial expiry background job...');
+    startTrialExpiryJob();
 
     const bot = createBot();
-
-    state.setTelegramConnected(true);
 
     await startBot(bot);
   } catch (error) {

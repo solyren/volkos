@@ -5,6 +5,7 @@ import { isValidPhoneNumber } from '../../whatsapp/utils.js';
 import { formatErrorMessage, formatPairingMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
 import { deleteUserAuth } from '../../whatsapp/auth-manager.js';
+import { cancelKeyboard } from '../keyboards.js';
 
 const log = createLogger('TelegramPairingMulti');
 
@@ -27,7 +28,9 @@ export const handlePairCommand = async (ctx) => {
 
     const msg = 'Please enter your WhatsApp phone number with country code ' +
       '(e.g., +62812345678):';
-    await ctx.reply(msg);
+    await ctx.reply(msg, {
+      reply_markup: cancelKeyboard(),
+    });
     ctx.session.waitingForPhone = true;
   } catch (error) {
     log.error({ error }, 'Error in pair command');
@@ -46,7 +49,9 @@ export const handlePhoneInput = async (ctx) => {
     const phone = ctx.message.text.trim();
 
     if (!isValidPhoneNumber(phone)) {
-      await ctx.reply('❌ Invalid phone number. Please try again with country code.');
+      await ctx.reply('❌ Invalid phone number. Please try again with country code.', {
+        reply_markup: cancelKeyboard(),
+      });
       return;
     }
 

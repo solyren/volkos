@@ -3,24 +3,20 @@ import { Keyboard } from 'grammy';
 // -- ownerMainMenu --
 export const ownerMainMenu = () => {
   return new Keyboard()
-    .text('🛠️ Owner Panel')
-    .text('📱 Pairing')
-    .row()
-    .text('🔍 Check Bio')
-    .resized();
-};
-
-// -- ownerPanelMenu --
-export const ownerPanelMenu = () => {
-  return new Keyboard()
     .text('👥 View Users')
     .text('➕ Add User')
     .row()
-    .text('🔍 Check Bio')
-    .text('📊 System Status')
+    .text('🔄 Extend User')
+    .text('🗑️ Remove User')
     .row()
+    .text('📊 System Status')
+    .text('⚙️ Set Trial Days')
+    .row()
+    .text('📢 Broadcast')
+    .text('📱 Pairing')
+    .row()
+    .text('🔍 Check Bio')
     .text('❓ Help')
-    .text('🔙 Back')
     .resized();
 };
 
@@ -28,19 +24,21 @@ export const ownerPanelMenu = () => {
 export const ownerPairingMenu = () => {
   return new Keyboard()
     .text('📱 Pair WhatsApp')
-    .text('📊 Status')
-    .row()
-    .text('🔍 Check Bio')
     .text('❌ Disconnect')
     .row()
-    .text('❓ Help')
+    .text('🔍 Check Bio')
     .text('🔙 Back')
     .resized();
 };
 
+// -- ownerPanelMenu --
+export const ownerPanelMenu = () => {
+  return ownerMainMenu();
+};
+
 // -- mainAdminMenu --
 export const mainAdminMenu = () => {
-  return ownerPanelMenu();
+  return ownerMainMenu();
 };
 
 // -- userMainMenu --
@@ -60,11 +58,16 @@ export const userMainMenu = () => {
 // -- addUserRoleKeyboard --
 export const addUserRoleKeyboard = () => {
   return new Keyboard()
-    .text('trial (1 day)')
-    .text('user (permanent)')
+    .text('👤 User')
+    .text('👑 Owner')
     .row()
-    .text('owner')
-    .row()
-    .text('Cancel')
+    .text('🔙 Cancel')
+    .resized();
+};
+
+// -- cancelKeyboard --
+export const cancelKeyboard = () => {
+  return new Keyboard()
+    .text('🔙 Cancel')
     .resized();
 };

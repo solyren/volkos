@@ -4,12 +4,16 @@ import { getRedis } from './redis.js';
 const log = createLogger('UserDB');
 
 // -- createUser --
-export const createUser = async (userId, role = 'trial', expiryDays = 1) => {
+export const createUser = async (userId, role = 'trial', expiryDays = null) => {
   try {
     const redis = getRedis();
     const now = Date.now();
-    const expiryMs = role === 'trial' ? expiryDays * 24 * 60 * 60 * 1000 : null;
-    const expiryTime = expiryMs ? now + expiryMs : null;
+
+    let expiryTime = null;
+
+    if (expiryDays !== null && expiryDays > 0) {
+      expiryTime = now + expiryDays * 24 * 60 * 60 * 1000;
+    }
 
     const userData = {
       userId: String(userId),
@@ -23,7 +27,8 @@ export const createUser = async (userId, role = 'trial', expiryDays = 1) => {
 
     const jsonString = JSON.stringify(userData);
     await redis.set(`user:${userId}`, jsonString);
-    log.info(`User created: ${userId} with role ${role}`);
+    const expMsg = expiryTime ? `expiry: ${new Date(expiryTime).toISOString()}` : 'permanent';
+    log.info(`User created: ${userId} with role ${role}, ${expMsg}`);
     return userData;
   } catch (error) {
     log.error({ error }, `Failed to create user ${userId}`);
@@ -116,6 +121,36 @@ export const updateUser = async (userId, updates) => {
     return updatedData;
   } catch (error) {
     log.error({ error }, `[DEBUG UPDATE] FAILED to update user ${userId}`);
+    throw error;
+  }
+};
+
+// -- extendUser --
+export const extendUser = async (userId, additionalDays) => {
+  try {
+    const user = await getUser(userId);
+    if (!user) {
+      log.warn(`Attempted to extend non-existent user: ${userId}`);
+      return null;
+    }
+
+    if (user.role === 'owner') {
+      log.warn(`Cannot extend owner user: ${userId}`);
+      return null;
+    }
+
+    const now = Date.now();
+    const currentExpiry = user.expiryTime || now;
+    const additionalMs = additionalDays * 24 * 60 * 60 * 1000;
+    const newExpiry = Math.max(currentExpiry, now) + additionalMs;
+
+    const updatedUser = { ...user, expiryTime: newExpiry };
+    const redis = getRedis();
+    await redis.set(`user:${userId}`, JSON.stringify(updatedUser));
+    log.info({ userId, additionalDays, newExpiry }, 'User extended');
+    return updatedUser;
+  } catch (error) {
+    log.error({ error, userId }, 'Failed to extend user');
     throw error;
   }
 };

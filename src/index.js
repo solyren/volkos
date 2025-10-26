@@ -26,10 +26,10 @@ const main = async () => {
       log.error({ error: err }, 'Error during background auto-connect');
     });
 
-    log.info('Starting trial expiry background job...');
-    startTrialExpiryJob();
-
     const bot = createBot();
+
+    log.info('Starting trial expiry background job...');
+    startTrialExpiryJob(bot);
 
     await startBot(bot);
   } catch (error) {

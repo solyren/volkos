@@ -1,4 +1,5 @@
 import { createLogger } from '../logger.js';
+import { getCachedBio, setCachedBio } from './cache.js';
 
 const log = createLogger('WhatsAppUtils');
 
@@ -37,10 +38,17 @@ export const formatBioDate = (timestamp) => {
 };
 
 // -- fetchBioForUser --
-export const fetchBioForUser = async (socket, phoneNumber) => {
+export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
   try {
     if (!socket) {
       throw new Error('Socket not connected');
+    }
+
+    if (useCache) {
+      const cached = getCachedBio(phoneNumber);
+      if (cached) {
+        return cached;
+      }
     }
 
     let jid = phoneNumber;
@@ -54,7 +62,9 @@ export const fetchBioForUser = async (socket, phoneNumber) => {
     log.info(`[DEBUG BIO] Status response: ${JSON.stringify(statusResponse)}`);
 
     if (!statusResponse || statusResponse.length === 0) {
-      return { error: 'User not found or bio not available' };
+      const errorResult = { error: 'User not found or bio not available' };
+      setCachedBio(phoneNumber, errorResult, 300);
+      return errorResult;
     }
 
     const bioData = statusResponse[0];
@@ -62,17 +72,26 @@ export const fetchBioForUser = async (socket, phoneNumber) => {
     const bioSetAt = bioData?.status?.setAt;
 
     if (!bioText || bioText.trim() === '') {
-      return { error: 'User has no bio' };
+      const noBioResult = { error: 'User has no bio' };
+      setCachedBio(phoneNumber, noBioResult, 600);
+      return noBioResult;
     }
 
-    return {
+    const result = {
       phone: phoneNumber,
       bio: bioText,
       setAt: formatBioDate(bioSetAt),
       success: true,
     };
+
+    setCachedBio(phoneNumber, result, 3600);
+    return result;
   } catch (error) {
     log.error({ error }, `Failed to fetch bio for ${phoneNumber}`);
-    return { error: error?.message || 'Failed to fetch bio' };
+    const errorResult = { error: error?.message || 'Failed to fetch bio' };
+    if (error?.message?.includes('rate') || error?.message?.includes('429')) {
+      setCachedBio(phoneNumber, errorResult, 60);
+    }
+    return errorResult;
   }
 };

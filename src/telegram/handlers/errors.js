@@ -5,7 +5,15 @@ const log = createLogger('TelegramErrors');
 // -- handleError --
 export const handleError = async (ctx, error) => {
   try {
-    log.error({ error }, 'Error occurred in handler');
+    log.error({
+      error,
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      userId: ctx.from?.id,
+      username: ctx.from?.username,
+      text: ctx.message?.text,
+    }, 'Error occurred in handler');
     await ctx.reply('❌ An error occurred. Please try again.');
   } catch (err) {
     log.error({ err }, 'Failed to send error message');

@@ -1,9 +1,11 @@
 import { InputFile } from 'grammy';
+import PQueue from 'p-queue';
 import { createLogger } from '../../logger.js';
 import { getUserSocket } from '../../whatsapp/socket-pool.js';
 import { fetchBioForUser } from '../../whatsapp/utils.js';
 import { formatErrorMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
+import { cancelKeyboard } from '../keyboards.js';
 
 const log = createLogger('TelegramCheckBio');
 
@@ -44,75 +46,127 @@ const processBulkBio = async (ctx, socket, numbers) => {
   };
 
   let processed = 0;
-  let delayMs = 100;
   let consecutiveErrors = 0;
-  let consecutiveSuccess = 0;
+  let rateLimitPauses = 0;
+  let lastProgressText = '';
+
+  const queue = new PQueue({
+    concurrency: 12,
+    interval: 1000,
+    intervalCap: 25,
+  });
 
   const progressMsg = await ctx.reply(
-    `🔄 Processing ${total} numbers...\n` +
-    '⏳ Starting bio checks...\n' +
-    `📊 0/${total} (0%)`,
+    `🚀 Processing ${total} numbers...\n` +
+    '⏳ Turbo mode activated...\n' +
+    `📊 0/${total} (0%)\n` +
+    '⚡ Concurrency: 12 | Max: 25/sec',
   );
 
-  for (const number of numbers) {
+  const updateProgress = async () => {
+    const percent = Math.round((processed / total) * 100);
+    const speed = queue.concurrency * (queue.intervalCap / (queue.interval / 1000));
+    const statusEmoji = consecutiveErrors >= 3 ? '⚠️' : '✅';
+
+    const progressText =
+      `${statusEmoji} Processing ${total} numbers...\n` +
+      `✅ Success: ${results.success.length}\n` +
+      `❌ Failed: ${results.failed.length}\n` +
+      `⚪ No Bio: ${results.noBio.length}\n` +
+      `📊 ${processed}/${total} (${percent}%)\n` +
+      `⚡ Speed: ~${Math.round(speed)} checks/sec\n` +
+      (rateLimitPauses > 0 ? `⏸️ Pauses: ${rateLimitPauses}` : '');
+
+    if (progressText === lastProgressText) {
+      return;
+    }
+
     try {
-      const result = await fetchBioForUser(socket, number);
+      await ctx.api.editMessageText(ctx.chat.id, progressMsg.message_id, progressText);
+      lastProgressText = progressText;
+    } catch (err) {
+      if (!err.message?.includes('message is not modified')) {
+        log.warn({ err }, 'Failed to update progress');
+      }
+    }
+  };
 
-      if (result.success) {
-        results.success.push({
-          phone: result.phone,
-          bio: result.bio,
-          setAt: result.setAt,
-        });
-        consecutiveSuccess++;
-        consecutiveErrors = 0;
+  const fetchWithRetry = async (number, retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const result = await fetchBioForUser(socket, number);
 
-        if (consecutiveSuccess >= 50 && delayMs > 50) {
-          delayMs = Math.max(50, delayMs - 10);
-          log.info(`[BULK] Speed increased, delay now ${delayMs}ms`);
+        if (result.success) {
+          results.success.push({
+            phone: result.phone,
+            bio: result.bio,
+            setAt: result.setAt,
+          });
+          consecutiveErrors = 0;
+          return;
         }
-      } else if (result.error === 'User has no bio') {
-        results.noBio.push(number);
-        consecutiveSuccess++;
-        consecutiveErrors = 0;
-      } else {
+
+        if (result.error === 'User has no bio') {
+          results.noBio.push(number);
+          consecutiveErrors = 0;
+          return;
+        }
+
+        const isRateLimit = result.error?.includes('rate') ||
+          result.error?.includes('429') ||
+          result.error?.includes('Too many');
+
+        if (isRateLimit && attempt < retries) {
+          const backoffDelay = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
+          log.warn(
+            `[RETRY] Rate limit for ${number}, ` +
+            `waiting ${backoffDelay}ms (attempt ${attempt}/${retries})`,
+          );
+          await new Promise((resolve) => globalThis.setTimeout(resolve, backoffDelay));
+          consecutiveErrors++;
+          continue;
+        }
+
         results.failed.push({ phone: number, error: result.error });
         consecutiveErrors++;
-        consecutiveSuccess = 0;
 
         if (consecutiveErrors >= 3) {
-          delayMs = Math.min(500, delayMs + 50);
-          log.warn(`[BULK] Rate limit detected, delay increased to ${delayMs}ms`);
+          log.warn('[PAUSE] Rate limit detected! Pausing for 8 seconds...');
+          queue.pause();
+          rateLimitPauses++;
+          await new Promise((resolve) => globalThis.setTimeout(resolve, 8000));
+          consecutiveErrors = 0;
+          queue.start();
+          log.info('[RESUME] Queue resumed after rate limit pause');
+        }
+
+        return;
+      } catch (error) {
+        if (attempt === retries) {
+          log.error({ error }, `Final attempt failed for ${number}`);
+          results.failed.push({ phone: number, error: error.message });
+        } else {
+          const retryDelay = 1000 * attempt;
+          log.warn(`[RETRY] Error for ${number}, retrying in ${retryDelay}ms`);
+          await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelay));
         }
       }
+    }
+  };
 
+  const tasks = numbers.map((number) =>
+    queue.add(async () => {
+      await fetchWithRetry(number);
       processed++;
 
       if (processed % 10 === 0 || processed === total) {
-        const percent = Math.round((processed / total) * 100);
-        const speed = Math.round(1000 / delayMs);
-
-        await ctx.api.editMessageText(
-          ctx.chat.id,
-          progressMsg.message_id,
-          `🔄 Processing ${total} numbers...\n` +
-          `✅ Success: ${results.success.length}\n` +
-          `❌ Failed: ${results.failed.length}\n` +
-          `⚪ No Bio: ${results.noBio.length}\n` +
-          `📊 ${processed}/${total} (${percent}%)\n` +
-          `⚡ Speed: ~${speed} checks/sec`,
-        );
+        await updateProgress();
       }
+    }),
+  );
 
-      if (processed < total) {
-        await new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
-      }
-    } catch (error) {
-      log.error({ error }, `Error processing ${number}`);
-      results.failed.push({ phone: number, error: error.message });
-      processed++;
-    }
-  }
+  await Promise.all(tasks);
+  await updateProgress();
 
   return results;
 };
@@ -231,7 +285,10 @@ export const handleCheckBioCommand = async (ctx) => {
       '• >10 numbers → 2 .txt files\n' +
       '• File upload → 2 .txt files';
 
-    await ctx.reply(msg, { parse_mode: 'Markdown' });
+    await ctx.reply(msg, {
+      parse_mode: 'Markdown',
+      reply_markup: cancelKeyboard(),
+    });
     ctx.session.waitingForBioPhone = true;
   } catch (error) {
     log.error({ error }, 'Error in check bio command');
@@ -287,12 +344,16 @@ export const handleBioPhoneInput = async (ctx) => {
     }
 
     if (numbers.length === 0) {
-      await ctx.reply('❌ No valid numbers found. Please send valid phone numbers.');
+      await ctx.reply('❌ No valid numbers found. Please send valid phone numbers.', {
+        reply_markup: cancelKeyboard(),
+      });
       return;
     }
 
     if (numbers.length > 1000) {
-      await ctx.reply(`❌ Too many numbers! Maximum 1000, you sent ${numbers.length}`);
+      await ctx.reply(`❌ Too many numbers! Maximum 1000, you sent ${numbers.length}`, {
+        reply_markup: cancelKeyboard(),
+      });
       return;
     }
 

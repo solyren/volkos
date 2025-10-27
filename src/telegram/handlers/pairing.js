@@ -14,12 +14,12 @@ const log = createLogger('TelegramPairing');
 export const handlePairCommand = async (ctx) => {
   try {
     if (state.getStatus().whatsapp) {
-      await ctx.reply('❌ Already paired. Use /disconnect first.');
+      await ctx.reply('❌ Udah pair. Pake /disconnect dulu.');
       return;
     }
 
     await ctx.reply(
-      'Please enter your WhatsApp phone number with country code (e.g., +62812345678):',
+      'Kirim nomor WhatsApp kamu dengan kode negara (contoh: +62812345678):',
     );
     ctx.session.waitingForPhone = true;
   } catch (error) {
@@ -38,11 +38,11 @@ export const handlePhoneInput = async (ctx) => {
     const phone = ctx.message.text.trim();
 
     if (!isValidPhoneNumber(phone)) {
-      await ctx.reply('❌ Invalid phone number. Please try again with country code.');
+      await ctx.reply('❌ Nomor ga valid. Coba lagi pake kode negara.');
       return;
     }
 
-    await ctx.reply('⏳ Initializing WhatsApp connection...');
+    await ctx.reply('⏳ Nyiapin koneksi WhatsApp...');
 
     if (!isSocketConnected()) {
       await createWhatsAppSocket();
@@ -59,7 +59,7 @@ export const handlePhoneInput = async (ctx) => {
       );
       log.info(`Pairing code sent for ${pairingResult.phone}: ${pairingResult.code}`);
     } else {
-      await ctx.reply('❌ Failed to generate pairing code. Try again.');
+      await ctx.reply('❌ Gagal generate pairing code. Coba lagi.');
     }
 
     ctx.session.waitingForPhone = false;
@@ -77,7 +77,7 @@ export const handleDisconnectCommand = async (ctx) => {
     const { disconnectSocket } = await import('../../whatsapp/socket.js');
     await disconnectSocket();
     state.clearPairingCode();
-    await ctx.reply('✅ WhatsApp disconnected successfully.');
+    await ctx.reply('✅ WhatsApp berhasil di-disconnect.');
     log.info('WhatsApp disconnected');
   } catch (error) {
     log.error({ error }, 'Error disconnecting');

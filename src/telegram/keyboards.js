@@ -3,20 +3,20 @@ import { Keyboard } from 'grammy';
 // -- ownerMainMenu --
 export const ownerMainMenu = () => {
   return new Keyboard()
-    .text('👥 View Users')
-    .text('➕ Add User')
+    .text('👥 Lihat User')
+    .text('➕ Tambah User')
     .row()
-    .text('🔄 Extend User')
-    .text('🗑️ Remove User')
+    .text('🔄 Perpanjang User')
+    .text('🗑️ Hapus User')
     .row()
-    .text('📊 System Status')
-    .text('⚙️ Set Trial Days')
+    .text('📊 Status Sistem')
+    .text('⚙️ Atur Hari Trial')
     .row()
     .text('📢 Broadcast')
-    .text('📱 WA Menu')
+    .text('📱 Menu WA')
     .row()
-    .text('📧 Email Menu')
-    .text('❓ Help')
+    .text('📧 Menu Email')
+    .text('❓ Bantuan')
     .row()
     .resized();
 };
@@ -39,30 +39,30 @@ export const userMainMenu = () => {
     .text('📱 Pair WhatsApp')
     .text('📊 Status')
     .row()
-    .text('🔍 Check Bio')
+    .text('🔍 Cek Bio')
     .text('❌ Disconnect')
     .row()
     .text('📧 Setup Email')
     .text('🔧 Fix Nomor')
     .row()
     .text('❓ Help')
-    .text('🔙 Cancel')
+    .text('🔙 Batal')
     .resized();
 };
 
 // -- addUserRoleKeyboard --
 export const addUserRoleKeyboard = () => {
   return new Keyboard()
-    .text('👤 User')
-    .text('👑 Owner')
+    .text('👤 Pengguna')
+    .text('👑 Pemilik')
     .row()
-    .text('🔙 Cancel')
+    .text('🔙 Batal')
     .resized();
 };
 
 // -- cancelKeyboard --
 export const cancelKeyboard = () => {
   return new Keyboard()
-    .text('🔙 Cancel')
+    .text('🔙 Batal')
     .resized();
 };

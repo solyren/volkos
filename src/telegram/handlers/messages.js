@@ -13,26 +13,27 @@ export const handleStatusCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (!user) {
-      await ctx.reply('❌ User profile not found');
+      await ctx.reply('❌ Profil user tidak ditemukan');
       return;
     }
 
     const whatsappConnected = isUserSocketConnected(userId);
-    const role = user.role.toUpperCase();
-    const phoneStatus = user.whatsappPhone ? `✅ ${user.whatsappPhone}` : '❌ Not paired';
+    const role = user.role === 'owner' ? 'PEMILIK' :
+      user.role === 'user' ? 'PENGGUNA' : 'TRIAL';
+    const phoneStatus = user.whatsappPhone ? `✅ ${user.whatsappPhone}` : '❌ Belum pair';
     const connectionStatus = whatsappConnected ? '✅ Connected' : '❌ Disconnected';
 
-    const message = '📊 *Your Status:*\n\n' +
-      `Role: *${role}*\n` +
+    const message = '📊 *Status Lo:*\n\n' +
+      `Peran: *${role}*\n` +
       `WhatsApp: ${phoneStatus}\n` +
-      `Connection: ${connectionStatus}\n` +
-      `Active: ${user.isActive ? '✅' : '❌'}`;
+      `Koneksi: ${connectionStatus}\n` +
+      `Aktif: ${user.isActive ? '✅' : '❌'}`;
 
     await ctx.reply(message, { parse_mode: 'Markdown' });
     log.debug(`Status command executed for user ${userId}`);
   } catch (error) {
     log.error({ error }, 'Error in status command');
-    await ctx.reply('❌ Error retrieving status');
+    await ctx.reply('❌ Gagal mengambil status');
   }
 };
 
@@ -69,15 +70,15 @@ export const handleStartCommand = async (ctx) => {
     let thumbnail = '';
 
     if (user.role === 'owner') {
-      message = '👑 *Welcome, Owner!*\n\n' +
-        '✨ You have *unlimited access* to all features.\n\n' +
-        '⏳ *Access Status:* Permanent (♾️)\n\n' +
-        '💼 *Control Panel:*\n' +
-        '• Manage all users\n' +
-        '• Configure system settings\n' +
-        '• Broadcast messages\n' +
-        '• Full bot access\n\n' +
-        '💡 Select an option below to continue:';
+      message = '👑 *Selamat Datang, Owner!*\n\n' +
+        '✨ Lo punya *akses unlimited* ke semua fitur.\n\n' +
+        '⏳ *Status Akses:* Permanen (♾️)\n\n' +
+        '💼 *Panel Kontrol:*\n' +
+        '• Kelola semua user\n' +
+        '• Setting sistem\n' +
+        '• Kirim broadcast\n' +
+        '• Akses bot penuh\n\n' +
+        '💡 Pilih menu di bawah:';
       thumbnail = config.thumbnails.welcomeOwner;
     } else if (user.role === 'trial') {
       const now = Date.now();
@@ -87,19 +88,19 @@ export const handleStartCommand = async (ctx) => {
       const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
 
       const timeText = remainingDays > 0 ?
-        `${remainingDays} day(s)` :
-        remainingHours > 0 ? `${remainingHours} hour(s)` : 'Expired';
+        `${remainingDays} hari` :
+        remainingHours > 0 ? `${remainingHours} jam` : 'Kedaluwarsa';
 
-      message = '🎉 *Welcome to VOLKSBOT!*\n\n' +
-        '✨ You are using a *Trial Account*\n\n' +
-        `⏳ *Time Remaining:* ${timeText}\n` +
-        `📅 *Expires:* ${new Date(expiryTime).toLocaleString()}\n\n` +
-        '🚀 *Available Features:*\n' +
-        '• Pair WhatsApp account\n' +
-        '• Check bio (bulk)\n' +
-        '• Connection management\n\n' +
-        '💡 Contact owner to upgrade your access!\n\n' +
-        '👇 Select an option below:';
+      message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
+        '✨ Lo pake *Akun Trial*\n\n' +
+        `⏳ *Waktu Tersisa:* ${timeText}\n` +
+        `📅 *Kedaluwarsa:* ${new Date(expiryTime).toLocaleString('id-ID')}\n\n` +
+        '🚀 *Fitur:*\n' +
+        '• Sambung WhatsApp\n' +
+        '• Cek bio (bulk)\n' +
+        '• Manajemen koneksi\n\n' +
+        '💡 Chat owner buat upgrade!\n\n' +
+        '👇 Pilih menu:';
       thumbnail = config.thumbnails.welcomeTrial;
     } else {
       const now = Date.now();
@@ -109,26 +110,26 @@ export const handleStartCommand = async (ctx) => {
         const remainingMs = expiryTime - now;
         const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
 
-        message = '🎉 *Welcome to VOLKSBOT!*\n\n' +
-          '✨ You have *Premium Access*\n\n' +
-          `⏳ *Access Duration:* ${remainingDays} day(s) remaining\n` +
-          `📅 *Expires:* ${new Date(expiryTime).toLocaleString()}\n\n` +
-          '🚀 *Available Features:*\n' +
-          '• Pair WhatsApp account\n' +
-          '• Check bio (bulk turbo mode)\n' +
-          '• Full connection management\n' +
-          '• Priority support\n\n' +
-          '👇 Select an option below:';
+        message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
+          '✨ Lo punya *Akses Premium*\n\n' +
+          `⏳ *Durasi:* ${remainingDays} hari lagi\n` +
+          `📅 *Kedaluwarsa:* ${new Date(expiryTime).toLocaleString('id-ID')}\n\n` +
+          '🚀 *Fitur:*\n' +
+          '• Sambung WhatsApp\n' +
+          '• Cek bio (bulk turbo)\n' +
+          '• Full akses koneksi\n' +
+          '• Support prioritas\n\n' +
+          '👇 Pilih menu:';
       } else {
-        message = '🎉 *Welcome to VOLKSBOT!*\n\n' +
-          '✨ You have *Permanent Access*\n\n' +
-          '⏳ *Access Status:* Unlimited (♾️)\n\n' +
-          '🚀 *Available Features:*\n' +
-          '• Pair WhatsApp account\n' +
-          '• Check bio (bulk turbo mode)\n' +
-          '• Full connection management\n' +
-          '• Priority support\n\n' +
-          '👇 Select an option below:';
+        message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
+          '✨ Lo punya *Akses Permanen*\n\n' +
+          '⏳ *Status:* Unlimited (♾️)\n\n' +
+          '🚀 *Fitur:*\n' +
+          '• Sambung WhatsApp\n' +
+          '• Cek bio (bulk turbo)\n' +
+          '• Full akses koneksi\n' +
+          '• Support prioritas\n\n' +
+          '👇 Pilih menu:';
       }
       thumbnail = config.thumbnails.welcomeUser;
     }
@@ -169,39 +170,39 @@ export const handleHelpCommand = async (ctx) => {
     let message = '';
 
     if (user?.role === 'owner') {
-      message = '*VOLKOS Bot - Owner Guide*\n\n' +
-        '*Owner Features:*\n' +
-        '👥 View Users - List all users with status\n' +
-        '➕ Add User - Create permanent user: `<id> <days>`\n' +
-        '📊 System Status - View system statistics\n' +
-        '⚙️ Set Trial Days - Configure auto trial duration\n' +
-        '📢 Broadcast - Send message to all users\n' +
-        '📱 Pairing - Link WhatsApp account\n' +
-        '🔍 Check Bio - Check WhatsApp bios (bulk)\n\n' +
-        '*Add User:*\n' +
-        '• Format: `<id> <days>` (e.g. `123456789 30`)\n' +
-        '• Roles: 👤 User (custom days) or 👑 Owner (permanent)\n' +
-        '• Days=0 for permanent user\n\n' +
-        '*Check Bio Usage:*\n' +
-        '• Send 1 number → Single check\n' +
-        '• Send multiple numbers → Bulk check (turbo mode)\n' +
-        '• Upload .txt file → Bulk check\n' +
-        '• Results: ≤10 (message), >10 (files)\n\n' +
-        '*💡 Tip:* Use 🔙 Cancel button anytime to exit';
+      message = '*VOLKOS Bot - Panduan Pemilik*\n\n' +
+        '*Fitur Pemilik:*\n' +
+        '👥 Lihat User - Daftar semua user dengan status\n' +
+        '➕ Tambah User - Buat user permanen: `<id> <hari>`\n' +
+        '📊 Status Sistem - Lihat statistik sistem\n' +
+        '⚙️ Atur Hari Trial - Konfigurasi durasi trial otomatis\n' +
+        '📢 Siaran - Kirim pesan ke semua user\n' +
+        '📱 Pairing - Sambungkan akun WhatsApp\n' +
+        '🔍 Cek Bio - Cek bio WhatsApp (bulk)\n\n' +
+        '*Tambah User:*\n' +
+        '• Format: `<id> <hari>` (contoh `123456789 30`)\n' +
+        '• Peran: 👤 Pengguna (hari custom) atau 👑 Pemilik (permanen)\n' +
+        '• Hari=0 untuk user permanen\n\n' +
+        '*Cara Pakai Cek Bio:*\n' +
+        '• Kirim 1 nomor → Cek tunggal\n' +
+        '• Kirim banyak nomor → Cek bulk (mode turbo)\n' +
+        '• Upload file .txt → Cek bulk\n' +
+        '• Hasil: ≤10 (pesan), >10 (file)\n\n' +
+        '*💡 Tips:* Gunakan tombol 🔙 Batal kapan saja untuk keluar';
     } else {
-      message = '*VOLKOS Bot - User Guide*\n\n' +
-        '*Available Features:*\n' +
-        '📱 Pair WhatsApp - Link your WhatsApp account\n' +
-        '📊 Status - Check your connection status\n' +
-        '🔍 Check Bio - Check single or multiple numbers\n' +
-        '❌ Disconnect - Remove WhatsApp pairing\n\n' +
-        '*How to use Check Bio:*\n' +
-        '• Send 1 number → Single check\n' +
-        '• Send multiple numbers → Bulk check (turbo mode)\n' +
-        '• Upload .txt file → Bulk check\n' +
-        '• ≤10 numbers (text) → Result in message\n' +
-        '• >10 numbers OR file → 2 .txt files\n\n' +
-        '*💡 Tip:* Use 🔙 Cancel button anytime to exit';
+      message = '*VOLKOS Bot - Panduan Pengguna*\n\n' +
+        '*Fitur Tersedia:*\n' +
+        '📱 Sambungkan WhatsApp - Hubungkan akun WhatsApp kamu\n' +
+        '📊 Status - Cek status koneksi kamu\n' +
+        '🔍 Cek Bio - Cek satu atau banyak nomor\n' +
+        '❌ Putuskan - Hapus sambungan WhatsApp\n\n' +
+        '*Cara Pakai Cek Bio:*\n' +
+        '• Kirim 1 nomor → Cek tunggal\n' +
+        '• Kirim banyak nomor → Cek bulk (mode turbo)\n' +
+        '• Upload file .txt → Cek bulk\n' +
+        '• ≤10 nomor (teks) → Hasil dalam pesan\n' +
+        '• >10 nomor ATAU file → 2 file .txt\n\n' +
+        '*💡 Tips:* Gunakan tombol 🔙 Batal kapan saja untuk keluar';
     }
 
     await ctx.reply(message, { parse_mode: 'Markdown' });

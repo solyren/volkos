@@ -31,7 +31,7 @@ export const handleConnectionError = (error, lastDisconnect) => {
 // -- formatBioDate --
 export const formatBioDate = (timestamp) => {
   if (!timestamp || timestamp === '1970-01-01T00:00:00.000Z') {
-    return 'Unknown';
+    return 'Gak diketahui';
   }
   const date = new Date(timestamp);
   return date.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
@@ -41,7 +41,7 @@ export const formatBioDate = (timestamp) => {
 export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
   try {
     if (!socket) {
-      throw new Error('Socket not connected');
+      throw new Error('Socket gak connect');
     }
 
     if (useCache) {
@@ -62,7 +62,7 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
     log.info(`[DEBUG BIO] Status response: ${JSON.stringify(statusResponse)}`);
 
     if (!statusResponse || statusResponse.length === 0) {
-      const errorResult = { error: 'User not found or bio not available' };
+      const errorResult = { error: 'User gak ketemu atau bio gak tersedia' };
       setCachedBio(phoneNumber, errorResult, 300);
       return errorResult;
     }
@@ -72,7 +72,7 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
     const bioSetAt = bioData?.status?.setAt;
 
     if (!bioText || bioText.trim() === '') {
-      const noBioResult = { error: 'User has no bio' };
+      const noBioResult = { error: 'User gak punya bio' };
       setCachedBio(phoneNumber, noBioResult, 600);
       return noBioResult;
     }
@@ -88,7 +88,7 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
     return result;
   } catch (error) {
     log.error({ error }, `Failed to fetch bio for ${phoneNumber}`);
-    const errorResult = { error: error?.message || 'Failed to fetch bio' };
+    const errorResult = { error: error?.message || 'Gagal ambil bio' };
     if (error?.message?.includes('rate') || error?.message?.includes('429')) {
       setCachedBio(phoneNumber, errorResult, 60);
     }

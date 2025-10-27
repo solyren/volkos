@@ -11,13 +11,13 @@ export const formatStatusMessage = (status) => {
   const whatsappStatus = status.whatsapp ? '✅' : '❌';
   const paired = status.paired ? '✅' : '❌';
 
-  let message = '*Bot Status*\n\n';
+  let message = '*Status Bot*\n\n';
   message += `Telegram: ${telegramStatus}\n`;
   message += `WhatsApp: ${whatsappStatus}\n`;
   message += `Paired: ${paired}`;
 
   if (status.phoneNumber) {
-    message += `\nPhone: ${status.phoneNumber}`;
+    message += `\nNomor: ${status.phoneNumber}`;
   }
 
   return message;
@@ -25,7 +25,7 @@ export const formatStatusMessage = (status) => {
 
 // -- formatErrorMessage --
 export const formatErrorMessage = (error) => {
-  let message = 'An error occurred';
+  let message = 'Terjadi error';
   if (error) {
     if (typeof error === 'string') {
       message = error;
@@ -41,17 +41,17 @@ export const formatErrorMessage = (error) => {
 // -- formatPairingMessage --
 export const formatPairingMessage = (code, phone) => {
   let message = '🤖 *VOLKSBOT PAIRING*\n\n';
-  message += `📱 Phone: ${phone}\n\n`;
-  message += '🔐 *Your Code:*\n';
+  message += `📱 Nomor: ${phone}\n\n`;
+  message += '🔐 *Kode Lo:*\n';
   message += `*${code}*\n\n`;
   message += '─────────────────────\n\n';
-  message += '📖 *Steps:*\n';
-  message += '1️⃣ Open WhatsApp on phone\n';
+  message += '📖 *Langkah:*\n';
+  message += '1️⃣ Buka WhatsApp di HP\n';
   message += '2️⃣ Settings → Linked Devices\n';
   message += '3️⃣ Tap "Link a Device"\n';
-  message += '4️⃣ Enter code above\n';
-  message += '5️⃣ Wait for connection confirmation\n\n';
-  message += '⏳ Do not proceed until bot shows "✅ VOLKSBOT Connected!"';
+  message += '4️⃣ Masukin kode di atas\n';
+  message += '5️⃣ Tunggu konfirmasi koneksi\n\n';
+  message += '⏳ Jangan lanjut sampe bot nunjukin "✅ VOLKSBOT Connected!"';
 
   return message;
 };

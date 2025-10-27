@@ -175,15 +175,15 @@ const processBulkBio = async (ctx, socket, numbers) => {
 const formatBulkResults = (results) => {
   const lines = [];
 
-  lines.push('📋 *Bio Check Results*\n');
-  lines.push(`✅ Success: ${results.success.length}`);
-  lines.push(`❌ Failed: ${results.failed.length}`);
-  lines.push(`⚪ No Bio: ${results.noBio.length}`);
+  lines.push('📋 *Hasil Check Bio*\n');
+  lines.push(`✅ Berhasil: ${results.success.length}`);
+  lines.push(`❌ Gagal: ${results.failed.length}`);
+  lines.push(`⚪ Gak Ada Bio: ${results.noBio.length}`);
   lines.push(`📊 Total: ${results.success.length + results.failed.length + results.noBio.length}\n`);
 
   if (results.success.length > 0) {
     lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*✅ Found Bios:*\n');
+    lines.push('*✅ Ketemu Bio:*\n');
 
     results.success.forEach((r, i) => {
       lines.push(`${i + 1}. \`${r.phone}\``);
@@ -194,13 +194,13 @@ const formatBulkResults = (results) => {
 
   if (results.noBio.length > 0) {
     lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*⚪ No Bio:*');
+    lines.push('*⚪ Gak Ada Bio:*');
     lines.push(results.noBio.map((n) => `\`${n}\``).join(', ') + '\n');
   }
 
   if (results.failed.length > 0) {
     lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*❌ Failed:*');
+    lines.push('*❌ Gagal:*');
     results.failed.forEach((f) => {
       lines.push(`\`${f.phone}\`: ${f.error}`);
     });
@@ -262,28 +262,28 @@ export const handleCheckBioCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (!user || !user.whatsappPaired) {
-      await ctx.reply('❌ You need to pair WhatsApp first. Press 📱 Pair WhatsApp button.');
+      await ctx.reply('❌ Lo perlu pair WhatsApp dulu. Tekan tombol 📱 Pair WhatsApp.');
       return;
     }
 
     log.info(`[CHECK-BIO] User ${userId} is paired, showing options`);
     const msg = '🔍 *Check Bio*\n\n' +
-      '*Single Number:*\n' +
-      'Send 1 phone number\n' +
-      'Example: `6281234567890`\n\n' +
-      '*Multiple Numbers:*\n' +
-      'Send numbers (one per line)\n' +
-      'Example:\n' +
+      '*Nomor Tunggal:*\n' +
+      'Kirim 1 nomor telepon\n' +
+      'Contoh: `6281234567890`\n\n' +
+      '*Banyak Nomor:*\n' +
+      'Kirim nomor (satu per baris)\n' +
+      'Contoh:\n' +
       '```\n' +
       '6281234567890\n' +
       '6289876543210\n' +
       '```\n\n' +
-      '*File Upload:*\n' +
-      'Upload .txt file with numbers\n\n' +
-      '💡 *Output Logic:*\n' +
-      '• ≤10 numbers (text) → Telegram message\n' +
-      '• >10 numbers → 2 .txt files\n' +
-      '• File upload → 2 .txt files';
+      '*Upload File:*\n' +
+      'Upload file .txt yang isi nomor\n\n' +
+      '💡 *Logika Output:*\n' +
+      '• ≤10 nomor (text) → Pesan Telegram\n' +
+      '• >10 nomor → 2 file .txt\n' +
+      '• Upload file → 2 file .txt';
 
     await ctx.reply(msg, {
       parse_mode: 'Markdown',
@@ -307,7 +307,7 @@ export const handleBioPhoneInput = async (ctx) => {
     const socket = getUserSocket(userId);
 
     if (!socket || !socket.user) {
-      await ctx.reply('❌ WhatsApp connection lost. Please pair again.');
+      await ctx.reply('❌ Koneksi WhatsApp putus. Pair lagi dong.');
       ctx.session.waitingForBioPhone = false;
       return;
     }
@@ -319,11 +319,11 @@ export const handleBioPhoneInput = async (ctx) => {
       const doc = ctx.message.document;
 
       if (!doc.file_name?.endsWith('.txt')) {
-        await ctx.reply('❌ Please upload a .txt file');
+        await ctx.reply('❌ Upload file .txt dong');
         return;
       }
 
-      await ctx.reply('📥 Reading file...');
+      await ctx.reply('📥 Baca file dulu...');
       const content = await readFileContent(ctx, doc.file_id);
       numbers = parsePhoneNumbers(content);
       isFromFile = true;
@@ -331,11 +331,11 @@ export const handleBioPhoneInput = async (ctx) => {
       const doc = ctx.message.reply_to_message.document;
 
       if (!doc.file_name?.endsWith('.txt')) {
-        await ctx.reply('❌ Please reply to a .txt file');
+        await ctx.reply('❌ Reply ke file .txt dong');
         return;
       }
 
-      await ctx.reply('📥 Reading file...');
+      await ctx.reply('📥 Baca file dulu...');
       const content = await readFileContent(ctx, doc.file_id);
       numbers = parsePhoneNumbers(content);
       isFromFile = true;
@@ -344,29 +344,29 @@ export const handleBioPhoneInput = async (ctx) => {
     }
 
     if (numbers.length === 0) {
-      await ctx.reply('❌ No valid numbers found. Please send valid phone numbers.', {
+      await ctx.reply('❌ Gak ada nomor yang valid. Kirim nomor telepon yang bener.', {
         reply_markup: cancelKeyboard(),
       });
       return;
     }
 
     if (numbers.length > 1000) {
-      await ctx.reply(`❌ Too many numbers! Maximum 1000, you sent ${numbers.length}`, {
+      await ctx.reply(`❌ Kebanyakan nomor! Max 1000, lo kirim ${numbers.length}`, {
         reply_markup: cancelKeyboard(),
       });
       return;
     }
 
     if (numbers.length === 1) {
-      await ctx.reply('⏳ Fetching bio information...');
+      await ctx.reply('⏳ Ambil info bio dulu...');
 
       const result = await fetchBioForUser(socket, numbers[0]);
 
       if (result.success) {
-        const message = '📋 *Bio Check Result*\n\n' +
-          `📱 Phone: \`${result.phone}\`\n` +
+        const message = '📋 *Hasil Check Bio*\n\n' +
+          `📱 Nomor: \`${result.phone}\`\n` +
           `📝 Bio: ${result.bio}\n` +
-          `📅 Set Date: ${result.setAt}`;
+          `📅 Tanggal Set: ${result.setAt}`;
 
         await ctx.reply(message, { parse_mode: 'Markdown' });
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
@@ -384,12 +384,12 @@ export const handleBioPhoneInput = async (ctx) => {
         await ctx.reply(resultText, { parse_mode: 'Markdown' });
       } else {
         await ctx.reply(
-          '📋 *Results Summary*\n\n' +
-          `✅ Success: ${results.success.length}\n` +
-          `❌ Failed: ${results.failed.length}\n` +
-          `⚪ No Bio: ${results.noBio.length}\n` +
+          '📋 *Ringkasan Hasil*\n\n' +
+          `✅ Berhasil: ${results.success.length}\n` +
+          `❌ Gagal: ${results.failed.length}\n` +
+          `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
           `📊 Total: ${numbers.length}\n\n` +
-          '📄 Files attached below:',
+          '📄 File terlampir di bawah:',
           { parse_mode: 'Markdown' },
         );
 
@@ -412,7 +412,7 @@ export const handleBioPhoneInput = async (ctx) => {
     ctx.session.waitingForBioPhone = false;
   } catch (error) {
     log.error({ error }, 'Error handling bio phone input');
-    await ctx.reply(`❌ Error: ${error.message || 'Failed to check bio'}`);
+    await ctx.reply(`❌ Error: ${error.message || 'Gagal cek bio'}`);
     ctx.session.waitingForBioPhone = false;
   }
 };

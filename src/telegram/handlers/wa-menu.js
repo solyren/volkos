@@ -6,8 +6,8 @@ const log = createLogger('WAMenuHandler');
 // -- handleOwnerWAMenuStart --
 export const handleOwnerWAMenuStart = async (ctx) => {
   try {
-    const message = '📱 *WhatsApp Management*\n\n' +
-      'Select an action:';
+    const message = '📱 *Manajemen WhatsApp*\n\n' +
+      'Pilih aksi:';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -15,6 +15,6 @@ export const handleOwnerWAMenuStart = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error in owner WA menu');
-    await ctx.reply('❌ Error opening WA menu');
+    await ctx.reply('❌ Gagal membuka menu WA');
   }
 };

@@ -14,7 +14,7 @@ export const handleError = async (ctx, error) => {
       username: ctx.from?.username,
       text: ctx.message?.text,
     }, 'Error occurred in handler');
-    await ctx.reply('❌ An error occurred. Please try again.');
+    await ctx.reply('❌ Terjadi kesalahan. Silakan coba lagi.');
   } catch (err) {
     log.error({ err }, 'Failed to send error message');
   }

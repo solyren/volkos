@@ -6,9 +6,9 @@ export const ownerWAMenu = () => {
     .text('📱 Pair WhatsApp')
     .text('❌ Disconnect')
     .row()
-    .text('🔍 Check Bio')
+    .text('🔍 Cek Bio')
     .text('📊 Status')
     .row()
-    .text('🔙 Back')
+    .text('🔙 Kembali')
     .resized();
 };

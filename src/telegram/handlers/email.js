@@ -25,7 +25,9 @@ export const handleOwnerEmailMenuStart = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error in owner email menu');
-    await ctx.reply('❌ Gagal membuka menu email');
+    await ctx.reply('❌ Gagal membuka menu email', {
+      reply_markup: ownerMainMenu(),
+    });
   }
 };
 
@@ -62,7 +64,9 @@ export const handleOwnerViewTemplate = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error viewing template');
-    await ctx.reply('❌ Gagal memuat template');
+    await ctx.reply('❌ Gagal memuat template', {
+      reply_markup: ownerEmailMenu(),
+    });
   }
 };
 
@@ -99,7 +103,9 @@ export const handleOwnerDeleteTemplate = async (ctx) => {
     log.info('Email template deleted by owner');
   } catch (error) {
     log.error({ error }, 'Error deleting template');
-    await ctx.reply('❌ Gagal menghapus template');
+    await ctx.reply('❌ Gagal menghapus template', {
+      reply_markup: ownerEmailMenu(),
+    });
   }
 };
 
@@ -132,7 +138,9 @@ export const handleOwnerSetTemplateStart = async (ctx) => {
     ctx.session.settingEmailTemplate = true;
   } catch (error) {
     log.error({ error }, 'Error in owner email template start');
-    await ctx.reply('❌ Gagal memulai pengaturan template email');
+    await ctx.reply('❌ Gagal memulai pengaturan template email', {
+      reply_markup: ownerMainMenu(),
+    });
   }
 };
 
@@ -170,7 +178,9 @@ export const handleOwnerEmailTemplateInput = async (ctx, text) => {
     log.info('Email template updated by owner');
   } catch (error) {
     log.error({ error }, 'Error in owner email template input');
-    await ctx.reply('❌ Gagal memperbarui template email');
+    await ctx.reply('❌ Gagal memperbarui template email', {
+      reply_markup: ownerMainMenu(),
+    });
   }
 };
 
@@ -216,7 +226,11 @@ export const handleUserSetupEmailStart = async (ctx) => {
     };
   } catch (error) {
     log.error({ error }, 'Error in user setup email start');
-    await ctx.reply('❌ Gagal mulai setup email');
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+    await ctx.reply('❌ Gagal mulai setup email', {
+      reply_markup: menu,
+    });
   }
 };
 
@@ -318,6 +332,9 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
 
     delete ctx.session.setupEmail;
 
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+
     if (error.code === 'EAUTH') {
       await ctx.reply(
         '❌ *Autentikasi Gagal*\n\n' +
@@ -326,10 +343,15 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
         '• App Password salah\n' +
         '• 2-Step Verification belum aktif\n\n' +
         'Coba lagi pake tombol 📧 *Atur Email*.',
-        { parse_mode: 'Markdown' },
+        {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        },
       );
     } else {
-      await ctx.reply('❌ Gagal setup email. Coba lagi ya.');
+      await ctx.reply('❌ Gagal setup email. Coba lagi ya.', {
+        reply_markup: menu,
+      });
     }
   }
 };
@@ -381,7 +403,11 @@ export const handleUserFixNomorStart = async (ctx) => {
     ctx.session.fixingNomor = true;
   } catch (error) {
     log.error({ error }, 'Error in user fix nomor start');
-    await ctx.reply('❌ Gagal mulai fix nomor');
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+    await ctx.reply('❌ Gagal mulai fix nomor', {
+      reply_markup: menu,
+    });
   }
 };
 
@@ -461,16 +487,24 @@ export const handleUserFixNomorInput = async (ctx, text) => {
 
     ctx.session.fixingNomor = false;
 
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+
     if (error.code === 'EAUTH') {
       await ctx.reply(
         '❌ *Autentikasi Email Gagal*\n\n' +
         'Kredensial email kamu mungkin udah expired.\n\n' +
         '💡 Setup ulang email pake:\n' +
         '📧 Tombol *Atur Email*',
-        { parse_mode: 'Markdown' },
+        {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        },
       );
     } else {
-      await ctx.reply('❌ Gagal kirim email. Coba lagi ya.');
+      await ctx.reply('❌ Gagal kirim email. Coba lagi ya.', {
+        reply_markup: menu,
+      });
     }
   }
 };

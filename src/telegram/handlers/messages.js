@@ -13,7 +13,10 @@ export const handleStatusCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (!user) {
-      await ctx.reply('❌ Profil user tidak ditemukan');
+      const menu = ownerMainMenu();
+      await ctx.reply('❌ Profil user tidak ditemukan', {
+        reply_markup: menu,
+      });
       return;
     }
 
@@ -29,11 +32,18 @@ export const handleStatusCommand = async (ctx) => {
       `Koneksi: ${connectionStatus}\n` +
       `Aktif: ${user.isActive ? '✅' : '❌'}`;
 
-    await ctx.reply(message, { parse_mode: 'Markdown' });
+    const menu = user.role === 'owner' ? ownerMainMenu() : userMainMenu();
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      reply_markup: menu,
+    });
     log.debug(`Status command executed for user ${userId}`);
   } catch (error) {
     log.error({ error }, 'Error in status command');
-    await ctx.reply('❌ Gagal mengambil status');
+    const menu = ownerMainMenu();
+    await ctx.reply('❌ Gagal mengambil status', {
+      reply_markup: menu,
+    });
   }
 };
 
@@ -205,9 +215,17 @@ export const handleHelpCommand = async (ctx) => {
         '*💡 Tips:* Gunakan tombol 🔙 Batal kapan saja untuk keluar';
     }
 
-    await ctx.reply(message, { parse_mode: 'Markdown' });
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+    await ctx.reply(message, {
+      parse_mode: 'Markdown',
+      reply_markup: menu,
+    });
   } catch (error) {
     log.error({ error }, 'Error in help command');
+    const menu = ownerMainMenu();
+    await ctx.reply('❌ Gagal memuat bantuan', {
+      reply_markup: menu,
+    });
   }
 };
 

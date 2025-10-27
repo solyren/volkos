@@ -1,5 +1,6 @@
 import { createLogger } from '../../logger.js';
 import { ownerWAMenu } from '../keyboards-wa.js';
+import { ownerMainMenu } from '../keyboards.js';
 
 const log = createLogger('WAMenuHandler');
 
@@ -15,6 +16,8 @@ export const handleOwnerWAMenuStart = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error in owner WA menu');
-    await ctx.reply('❌ Gagal membuka menu WA');
+    await ctx.reply('❌ Gagal membuka menu WA', {
+      reply_markup: ownerMainMenu(),
+    });
   }
 };

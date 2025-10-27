@@ -5,7 +5,7 @@ import { isValidPhoneNumber } from '../../whatsapp/utils.js';
 import { formatErrorMessage, formatPairingMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
 import { deleteUserAuth } from '../../whatsapp/auth-manager.js';
-import { cancelKeyboard } from '../keyboards.js';
+import { cancelKeyboard, ownerMainMenu, userMainMenu } from '../keyboards.js';
 
 const log = createLogger('TelegramPairingMulti');
 
@@ -46,6 +46,8 @@ export const handlePhoneInput = async (ctx) => {
     }
 
     const userId = ctx.from?.id;
+    const user = await getUser(userId);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
     const phone = ctx.message.text.trim();
 
     if (!isValidPhoneNumber(phone)) {
@@ -68,20 +70,30 @@ export const handlePhoneInput = async (ctx) => {
       );
       await ctx.reply(
         formatPairingMessage(pairingResult.code, pairingResult.phone),
-        { parse_mode: 'Markdown' },
+        {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        },
       );
       const phone = pairingResult.phone;
       const code = pairingResult.code;
       log.info(`Pairing code sent for user ${userId}: ${phone}: ${code}`);
     } else {
-      await ctx.reply('❌ Gagal generate pairing code. Coba lagi.');
+      await ctx.reply('❌ Gagal generate pairing code. Coba lagi.', {
+        reply_markup: menu,
+      });
     }
 
     ctx.session.waitingForPhone = false;
   } catch (error) {
     log.error({ error }, 'Error handling phone input');
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
     const errorMsg = formatErrorMessage(error);
-    await ctx.reply(errorMsg, { parse_mode: 'Markdown' });
+    await ctx.reply(errorMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: menu,
+    });
     ctx.session.waitingForPhone = false;
   }
 };
@@ -90,13 +102,21 @@ export const handlePhoneInput = async (ctx) => {
 export const handleDisconnectCommand = async (ctx) => {
   try {
     const userId = ctx.from?.id;
+    const user = await getUser(userId);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
     const { disconnectUserSocket } = await import('../../whatsapp/socket-pool.js');
     await disconnectUserSocket(userId);
     socketPool.clearPairingCode(userId);
-    await ctx.reply('✅ WhatsApp berhasil di-disconnect.');
+    await ctx.reply('✅ WhatsApp berhasil di-disconnect.', {
+      reply_markup: menu,
+    });
     log.info(`WhatsApp disconnected for user ${userId}`);
   } catch (error) {
     log.error({ error }, 'Error disconnecting');
-    await ctx.reply(formatErrorMessage(error));
+    const user = await getUser(ctx.from?.id);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+    await ctx.reply(formatErrorMessage(error), {
+      reply_markup: menu,
+    });
   }
 };

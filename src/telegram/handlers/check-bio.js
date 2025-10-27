@@ -5,7 +5,7 @@ import { getUserSocket } from '../../whatsapp/socket-pool.js';
 import { fetchBioForUser } from '../../whatsapp/utils.js';
 import { formatErrorMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
-import { cancelKeyboard } from '../keyboards.js';
+import { cancelKeyboard, ownerMainMenu, userMainMenu } from '../keyboards.js';
 
 const log = createLogger('TelegramCheckBio');
 
@@ -357,6 +357,9 @@ export const handleBioPhoneInput = async (ctx) => {
       return;
     }
 
+    const user = await getUser(userId);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+
     if (numbers.length === 1) {
       await ctx.reply('⏳ Ambil info bio dulu...');
 
@@ -368,10 +371,15 @@ export const handleBioPhoneInput = async (ctx) => {
           `📝 Bio: ${result.bio}\n` +
           `📅 Tanggal Set: ${result.setAt}`;
 
-        await ctx.reply(message, { parse_mode: 'Markdown' });
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        });
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
       } else {
-        await ctx.reply(`❌ ${result.error}`);
+        await ctx.reply(`❌ ${result.error}`, {
+          reply_markup: menu,
+        });
         log.warn(`[SINGLE] Failed: ${result.error}`);
       }
     } else {
@@ -381,7 +389,10 @@ export const handleBioPhoneInput = async (ctx) => {
 
       if (numbers.length <= 10 && !isFromFile) {
         const resultText = formatBulkResults(results);
-        await ctx.reply(resultText, { parse_mode: 'Markdown' });
+        await ctx.reply(resultText, {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        });
       } else {
         await ctx.reply(
           '📋 *Ringkasan Hasil*\n\n' +
@@ -404,7 +415,10 @@ export const handleBioPhoneInput = async (ctx) => {
         const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
         await ctx.replyWithDocument(
           new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
-          { caption: '❌ Nomor tanpa bio / failed' },
+          {
+            caption: '❌ Nomor tanpa bio / failed',
+            reply_markup: menu,
+          },
         );
       }
     }

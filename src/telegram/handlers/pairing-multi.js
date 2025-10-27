@@ -54,6 +54,7 @@ export const handlePhoneInput = async (ctx) => {
       await ctx.reply('❌ Nomor ga valid. Coba lagi pake kode negara.', {
         reply_markup: cancelKeyboard(),
       });
+      ctx.session.waitingForPhone = false;
       return;
     }
 

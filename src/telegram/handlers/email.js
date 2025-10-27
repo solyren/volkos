@@ -156,6 +156,7 @@ export const handleOwnerEmailTemplateInput = async (ctx, text) => {
         'Silakan kirim lagi:',
         { parse_mode: 'Markdown' },
       );
+      ctx.session.settingEmailTemplate = false;
       return;
     }
 

@@ -36,6 +36,7 @@ export const handleBroadcastMessage = async (ctx) => {
 
     if (!broadcastText || broadcastText.trim() === '') {
       await ctx.reply('❌ Pesan kosong. Silakan kirim pesan yang valid.');
+      ctx.session.waitingForBroadcast = false;
       return;
     }
 

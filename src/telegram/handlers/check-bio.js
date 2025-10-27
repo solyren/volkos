@@ -1,5 +1,5 @@
-import { InputFile } from 'grammy';
 import PQueue from 'p-queue';
+import { InputFile } from 'grammy';
 import { createLogger } from '../../logger.js';
 import { getUserSocket } from '../../whatsapp/socket-pool.js';
 import { fetchBioForUser } from '../../whatsapp/utils.js';
@@ -8,6 +8,71 @@ import { getUser } from '../../db/users.js';
 import { cancelKeyboard, ownerMainMenu, userMainMenu } from '../keyboards.js';
 
 const log = createLogger('TelegramCheckBio');
+
+// -- AdaptiveRateLimiter --
+class AdaptiveRateLimiter {
+  constructor() {
+    this.currentRate = 10;
+    this.minRate = 3;
+    this.maxRate = 10;
+    this.errorCount = 0;
+    this.successCount = 0;
+    this.baseDelay = 100;
+    this.backoffMultiplier = 1;
+  }
+
+  recordSuccess() {
+    this.successCount++;
+    this.errorCount = 0;
+    if (this.currentRate < this.maxRate && this.successCount > 5) {
+      this.currentRate = Math.min(this.maxRate, this.currentRate + 1);
+      this.successCount = 0;
+      log.info(`[RATE] Increased to ${this.currentRate}/sec`);
+    }
+  }
+
+  recordError(isRateLimit = false) {
+    this.errorCount++;
+    this.successCount = 0;
+    if (isRateLimit) {
+      this.currentRate = Math.max(this.minRate, this.currentRate - 2);
+      this.backoffMultiplier = Math.pow(2, Math.min(this.errorCount, 4));
+      log.warn(
+        '[RATE] Rate limit detected! ' +
+        `Reduced to ${this.currentRate}/sec, backoff: ${this.backoffMultiplier}x`,
+      );
+    }
+  }
+
+  getDelay() {
+    const interval = 1000 / this.currentRate;
+    const jitter = Math.random() * 0.2 * interval;
+    const backoffDelay = this.baseDelay * this.backoffMultiplier;
+    return Math.max(interval, backoffDelay) + jitter;
+  }
+
+  resetBackoff() {
+    if (this.errorCount === 0) {
+      this.backoffMultiplier = 1;
+    }
+  }
+}
+
+// -- RequestCache --
+class RequestCache {
+  constructor() {
+    this.pending = new Map();
+  }
+
+  async getOrFetch(key, fetchFn) {
+    if (this.pending.has(key)) {
+      return this.pending.get(key);
+    }
+    const promise = fetchFn().finally(() => this.pending.delete(key));
+    this.pending.set(key, promise);
+    return promise;
+  }
+}
 
 // -- parsePhoneNumbers --
 const parsePhoneNumbers = (text) => {
@@ -36,8 +101,8 @@ const readFileContent = async (ctx, fileId) => {
   }
 };
 
-// -- processBulkBio --
-const processBulkBio = async (ctx, socket, numbers) => {
+// -- processBulkBioAdvanced --
+const processBulkBioAdvanced = async (ctx, socket, numbers) => {
   const total = numbers.length;
   const results = {
     success: [],
@@ -45,37 +110,33 @@ const processBulkBio = async (ctx, socket, numbers) => {
     noBio: [],
   };
 
-  let processed = 0;
-  let consecutiveErrors = 0;
-  let rateLimitPauses = 0;
-  let lastProgressText = '';
+  const rateLimiter = new AdaptiveRateLimiter();
+  const cache = new RequestCache();
 
-  const queue = new PQueue({
-    concurrency: 12,
-    interval: 1000,
-    intervalCap: 25,
-  });
+  let processed = 0;
+  let lastProgressText = '';
+  const startTime = Date.now();
 
   const progressMsg = await ctx.reply(
     `🚀 Processing ${total} numbers...\n` +
-    '⏳ Turbo mode activated...\n' +
+    '⏳ Adaptive mode (10/sec start)...\n' +
     `📊 0/${total} (0%)\n` +
-    '⚡ Concurrency: 12 | Max: 25/sec',
+    '⚡ Smart rate limiting active',
   );
 
   const updateProgress = async () => {
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const percent = Math.round((processed / total) * 100);
-    const speed = queue.concurrency * (queue.intervalCap / (queue.interval / 1000));
-    const statusEmoji = consecutiveErrors >= 3 ? '⚠️' : '✅';
+    const speed = (processed / (Date.now() - startTime)) * 1000;
 
     const progressText =
-      `${statusEmoji} Processing ${total} numbers...\n` +
+      `🚀 Processing ${total} numbers...\n` +
       `✅ Success: ${results.success.length}\n` +
       `❌ Failed: ${results.failed.length}\n` +
       `⚪ No Bio: ${results.noBio.length}\n` +
       `📊 ${processed}/${total} (${percent}%)\n` +
-      `⚡ Speed: ~${Math.round(speed)} checks/sec\n` +
-      (rateLimitPauses > 0 ? `⏸️ Pauses: ${rateLimitPauses}` : '');
+      `⚡ Rate: ${rateLimiter.currentRate}/sec | Speed: ${speed.toFixed(1)}/sec\n` +
+      `⏱️ Time: ${elapsed}s`;
 
     if (progressText === lastProgressText) {
       return;
@@ -91,8 +152,8 @@ const processBulkBio = async (ctx, socket, numbers) => {
     }
   };
 
-  const fetchWithRetry = async (number, retries = 3) => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
+  const fetchBioAdaptive = async (number) => {
+    return cache.getOrFetch(number, async () => {
       try {
         const result = await fetchBioForUser(socket, number);
 
@@ -102,72 +163,81 @@ const processBulkBio = async (ctx, socket, numbers) => {
             bio: result.bio,
             setAt: result.setAt,
           });
-          consecutiveErrors = 0;
-          return;
+          rateLimiter.recordSuccess();
+          return result;
         }
 
-        if (result.error === 'User has no bio') {
+        if (result.error?.includes('no bio') || result.error?.includes('No Bio')) {
           results.noBio.push(number);
-          consecutiveErrors = 0;
-          return;
+          rateLimiter.recordSuccess();
+          return result;
         }
 
         const isRateLimit = result.error?.includes('rate') ||
           result.error?.includes('429') ||
           result.error?.includes('Too many');
 
-        if (isRateLimit && attempt < retries) {
-          const backoffDelay = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
-          log.warn(
-            `[RETRY] Rate limit for ${number}, ` +
-            `waiting ${backoffDelay}ms (attempt ${attempt}/${retries})`,
-          );
-          await new Promise((resolve) => globalThis.setTimeout(resolve, backoffDelay));
-          consecutiveErrors++;
-          continue;
+        if (isRateLimit) {
+          rateLimiter.recordError(true);
+          throw new Error('Rate limit - will retry');
         }
 
         results.failed.push({ phone: number, error: result.error });
-        consecutiveErrors++;
-
-        if (consecutiveErrors >= 3) {
-          log.warn('[PAUSE] Rate limit detected! Pausing for 8 seconds...');
-          queue.pause();
-          rateLimitPauses++;
-          await new Promise((resolve) => globalThis.setTimeout(resolve, 8000));
-          consecutiveErrors = 0;
-          queue.start();
-          log.info('[RESUME] Queue resumed after rate limit pause');
-        }
-
-        return;
+        rateLimiter.recordError(false);
+        return result;
       } catch (error) {
-        if (attempt === retries) {
-          log.error({ error }, `Final attempt failed for ${number}`);
-          results.failed.push({ phone: number, error: error.message });
-        } else {
-          const retryDelay = 1000 * attempt;
-          log.warn(`[RETRY] Error for ${number}, retrying in ${retryDelay}ms`);
-          await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelay));
-        }
+        results.failed.push({ phone: number, error: error.message });
+        rateLimiter.recordError(true);
+        throw error;
       }
-    }
+    });
   };
 
-  const tasks = numbers.map((number) =>
-    queue.add(async () => {
-      await fetchWithRetry(number);
-      processed++;
+  const processBatch = async (batch) => {
+    const queue = new PQueue({
+      concurrency: 3,
+      interval: 1000,
+      intervalCap: rateLimiter.currentRate,
+    });
 
-      if (processed % 10 === 0 || processed === total) {
-        await updateProgress();
-      }
-    }),
-  );
+    const tasks = batch.map((number) =>
+      queue.add(async () => {
+        await fetchBioAdaptive(number);
+        processed++;
 
-  await Promise.all(tasks);
+        if (processed % Math.ceil(total / 20) === 0 || processed === total) {
+          await updateProgress();
+        }
+
+        const delay = rateLimiter.getDelay();
+        await new Promise((resolve) => globalThis.setTimeout(resolve, delay));
+      }),
+    );
+
+    await Promise.all(tasks);
+  };
+
+  const batchSize = Math.min(100, Math.ceil(total / 5));
+  const batches = [];
+  for (let i = 0; i < total; i += batchSize) {
+    batches.push(numbers.slice(i, i + batchSize));
+  }
+
+  log.info(`[ADVANCED] Split ${total} numbers into ${batches.length} batches`);
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    log.info(`[BATCH ${i + 1}/${batches.length}] Processing ${batch.length} numbers`);
+    await processBatch(batch);
+
+    if (i < batches.length - 1) {
+      const batchDelay = 2000;
+      log.info(`[BATCH] Waiting ${batchDelay}ms before next batch...`);
+      await new Promise((resolve) => globalThis.setTimeout(resolve, batchDelay));
+    }
+  }
+
   await updateProgress();
-
   return results;
 };
 
@@ -253,6 +323,21 @@ const generateNoBioTxt = (results) => {
   return lines.join('\n');
 };
 
+// -- generateRemainingNumbersTxt --
+const generateRemainingNumbersTxt = (remainingNumbers) => {
+  const lines = ['=== NOMOR YANG BELUM DIPROSES ==='];
+  lines.push(`Total: ${remainingNumbers.length} nomor`);
+  lines.push('');
+  lines.push('Kirim ulang nomor di bawah untuk lanjut check bio:');
+  lines.push('');
+  remainingNumbers.forEach((phone) => {
+    lines.push(phone);
+  });
+  lines.push('');
+  lines.push('--- COPY DARI SINI ---');
+  return lines.join('\n');
+};
+
 // -- handleCheckBioCommand --
 export const handleCheckBioCommand = async (ctx) => {
   try {
@@ -320,6 +405,7 @@ export const handleBioPhoneInput = async (ctx) => {
 
       if (!doc.file_name?.endsWith('.txt')) {
         await ctx.reply('❌ Upload file .txt dong');
+        ctx.session.waitingForBioPhone = false;
         return;
       }
 
@@ -332,13 +418,20 @@ export const handleBioPhoneInput = async (ctx) => {
 
       if (!doc.file_name?.endsWith('.txt')) {
         await ctx.reply('❌ Reply ke file .txt dong');
+        ctx.session.waitingForBioPhone = false;
         return;
       }
 
       await ctx.reply('📥 Baca file dulu...');
-      const content = await readFileContent(ctx, doc.file_id);
-      numbers = parsePhoneNumbers(content);
-      isFromFile = true;
+      try {
+        const content = await readFileContent(ctx, doc.file_id);
+        numbers = parsePhoneNumbers(content);
+        isFromFile = true;
+      } catch (fileError) {
+        await ctx.reply(`❌ Gagal baca file: ${fileError.message}`);
+        ctx.session.waitingForBioPhone = false;
+        return;
+      }
     } else if (ctx.message?.text) {
       numbers = parsePhoneNumbers(ctx.message.text);
     }
@@ -347,13 +440,7 @@ export const handleBioPhoneInput = async (ctx) => {
       await ctx.reply('❌ Gak ada nomor yang valid. Kirim nomor telepon yang bener.', {
         reply_markup: cancelKeyboard(),
       });
-      return;
-    }
-
-    if (numbers.length > 1000) {
-      await ctx.reply(`❌ Kebanyakan nomor! Max 1000, lo kirim ${numbers.length}`, {
-        reply_markup: cancelKeyboard(),
-      });
+      ctx.session.waitingForBioPhone = false;
       return;
     }
 
@@ -383,11 +470,39 @@ export const handleBioPhoneInput = async (ctx) => {
         log.warn(`[SINGLE] Failed: ${result.error}`);
       }
     } else {
-      log.info(`[BULK] Processing ${numbers.length} numbers for user ${userId}`);
+      let numbersToProcess = numbers;
+      let remainingNumbers = [];
 
-      const results = await processBulkBio(ctx, socket, numbers);
+      if (numbers.length > 500) {
+        await ctx.reply(
+          '⚠️ *Terlalu Banyak!*\n\n' +
+          `Lo kirim ${numbers.length} nomor\n` +
+          'Bot hanya bisa process 500 per session.\n\n' +
+          'Bot akan proses 500 nomor dulu, ' +
+          `sisanya (${numbers.length - 500} nomor) ` +
+          'akan dikembaliin dalam format teks.\n\n' +
+          'Lanjut?',
+          { reply_markup: cancelKeyboard() },
+        );
+        ctx.session.waitingForBioPhone = false;
+        return;
+      }
 
-      if (numbers.length <= 10 && !isFromFile) {
+      if (numbers.length > 500) {
+        numbersToProcess = numbers.slice(0, 500);
+        remainingNumbers = numbers.slice(500);
+        log.info(`[BULK] Split: processing 500, remaining ${remainingNumbers.length}`);
+      }
+
+      log.info(`[BULK] Processing ${numbersToProcess.length} numbers for user ${userId}`);
+
+      const results = await processBulkBioAdvanced(ctx, socket, numbersToProcess);
+
+      if (
+        numbersToProcess.length <= 10 &&
+        !isFromFile &&
+        remainingNumbers.length === 0
+      ) {
         const resultText = formatBulkResults(results);
         await ctx.reply(resultText, {
           parse_mode: 'Markdown',
@@ -399,7 +514,8 @@ export const handleBioPhoneInput = async (ctx) => {
           `✅ Berhasil: ${results.success.length}\n` +
           `❌ Gagal: ${results.failed.length}\n` +
           `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
-          `📊 Total: ${numbers.length}\n\n` +
+          `📊 Diproses: ${numbersToProcess.length}\n` +
+          (remainingNumbers.length > 0 ? `📌 Sisa: ${remainingNumbers.length} nomor\n\n` : '') +
           '📄 File terlampir di bawah:',
           { parse_mode: 'Markdown' },
         );
@@ -415,11 +531,26 @@ export const handleBioPhoneInput = async (ctx) => {
         const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
         await ctx.replyWithDocument(
           new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
-          {
-            caption: '❌ Nomor tanpa bio / failed',
-            reply_markup: menu,
-          },
+          { caption: '❌ Nomor tanpa bio / failed' },
         );
+
+        if (remainingNumbers.length > 0) {
+          const remaining = remainingNumbers.length;
+          const caption = `📌 ${remaining} nomor belum diproses\nKirim ulang untuk lanjut`;
+          const remainingTxt = generateRemainingNumbersTxt(remainingNumbers);
+          const remainingBuffer = globalThis.Buffer.from(remainingTxt, 'utf-8');
+          await ctx.replyWithDocument(
+            new InputFile(remainingBuffer, `remaining_numbers_${Date.now()}.txt`),
+            {
+              caption,
+              reply_markup: menu,
+            },
+          );
+        } else {
+          await ctx.reply('✅ Selesai! Pilih menu di bawah:', {
+            reply_markup: menu,
+          });
+        }
       }
     }
 

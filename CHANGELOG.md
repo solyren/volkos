@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.0](https://github.com/solyren/volkos/compare/volkos-v0.0.1...volkos-v0.1.0) (2025-10-27)
+
+
+### Features
+
+* **email:** add fix nomor auto apply ke email ([5183ade](https://github.com/solyren/volkos/commit/5183adec405b7824509395ed39900b224df1cecc))
+
+
+### Refactors
+
+* **language:** ubah bahasa inggris menjadi bahasa indonesia ke semua code ([aa3aeb6](https://github.com/solyren/volkos/commit/aa3aeb62a42931c133877c32bbc2fb7a4b11f499))
+
+
+### Style
+
+* **commands:** ubah style view user ([2e95cf7](https://github.com/solyren/volkos/commit/2e95cf75b7be14ef86d06f9094eb47089b880e1d))
+
 ## 0.0.1 (2025-10-26)
 
 

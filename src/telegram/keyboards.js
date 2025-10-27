@@ -13,25 +13,15 @@ export const ownerMainMenu = () => {
     .text('⚙️ Set Trial Days')
     .row()
     .text('📢 Broadcast')
-    .text('📱 Pairing')
+    .text('📱 WA Menu')
     .row()
-    .text('🔍 Check Bio')
     .text('📧 Email Menu')
-    .row()
     .text('❓ Help')
+    .row()
     .resized();
 };
 
-// -- ownerPairingMenu --
-export const ownerPairingMenu = () => {
-  return new Keyboard()
-    .text('📱 Pair WhatsApp')
-    .text('❌ Disconnect')
-    .row()
-    .text('🔍 Check Bio')
-    .text('🔙 Back')
-    .resized();
-};
+
 
 // -- ownerPanelMenu --
 export const ownerPanelMenu = () => {

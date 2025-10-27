@@ -1,5 +1,6 @@
 import { createLogger } from '../../logger.js';
-import { getAllUsers } from '../../db/users.js';
+import { InlineKeyboard } from 'grammy';
+import { getAllUsers, getUser } from '../../db/users.js';
 import { mainAdminMenu, cancelKeyboard } from '../keyboards.js';
 import { getTrialDays } from '../../db/system.js';
 
@@ -17,34 +18,127 @@ export const handleAdminUsersList = async (ctx) => {
       return;
     }
 
-    let message = '👥 All Users:\n\n';
+    let message = `📊 Total: *${users.length}* user(s)\n\n`;
+
+    const inlineKeyboard = new InlineKeyboard();
+    let buttonCount = 0;
 
     for (const user of users) {
-      const role = user.role.toUpperCase();
-      const status = user.isActive ? '✅' : '❌';
-      const phone = user.whatsappPhone || 'No number';
+      const roleEmoji = user.role === 'owner' ? '👑' :
+        user.role === 'user' ? '👤' : '⏳';
+      const roleName = user.role === 'owner' ? 'Owner' :
+        user.role === 'user' ? 'User' : 'Trial';
+      const statusIcon = user.isActive ? '✅' : '❌';
 
-      let expiryText = '';
-      if (user.expiryTime) {
-        const expiryDate = new Date(user.expiryTime);
-        const now = new Date();
-        const isExpired = expiryDate < now;
-        const dateStr = expiryDate.toLocaleDateString();
-        expiryText = isExpired ? ` (⏰ Expired: ${dateStr})` : ` (⏳ Expires: ${dateStr})`;
-      } else {
-        expiryText = ' (♾️ Permanent)';
+      message += `${roleEmoji} ${roleName} ${statusIcon}\n`;
+      message += `ID: \`${user.userId}\`\n\n`;
+
+      inlineKeyboard.text(
+        `🔍 ${user.userId}`,
+        `view_user:${user.userId}`,
+      );
+      buttonCount++;
+
+      if (buttonCount % 2 === 0) {
+        inlineKeyboard.row();
       }
-
-      message += `${status} ID: ${user.userId}\n`;
-      message += `   Role: ${role}${expiryText}\n`;
-      message += `   Phone: ${phone}\n\n`;
     }
 
     await ctx.reply(message, {
-      reply_markup: mainAdminMenu(),
+      parse_mode: 'Markdown',
+      reply_markup: inlineKeyboard,
     });
   } catch (error) {
     log.error({ error }, 'Error in users list');
+  }
+};
+
+// -- handleViewUserDetail --
+export const handleViewUserDetail = async (ctx) => {
+  try {
+    const callbackData = ctx.callbackQuery?.data;
+    if (!callbackData || !callbackData.startsWith('view_user:')) {
+      return;
+    }
+
+    const userId = Number(callbackData.split(':')[1]);
+    const user = await getUser(userId);
+
+    if (!user) {
+      await ctx.answerCallbackQuery({
+        text: '❌ User not found',
+        show_alert: true,
+      });
+      return;
+    }
+
+    const roleEmoji = user.role === 'owner' ? '👑' :
+      user.role === 'user' ? '👤' : '⏳';
+    const roleName = user.role === 'owner' ? 'Owner' :
+      user.role === 'user' ? 'User' : 'Trial';
+    const status = user.isActive ? '✅ Active' : '❌ Inactive';
+    const phone = user.whatsappPhone || '🚫 Not set';
+    const paired = user.whatsappPaired ? '✅ Connected' : '❌ Disconnected';
+
+    let expiryText = '';
+    if (user.expiryTime) {
+      const expiryDate = new Date(user.expiryTime);
+      const now = new Date();
+      const isExpired = expiryDate < now;
+      const dateStr = expiryDate.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const timeStr = expiryDate.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      expiryText = isExpired ?
+        `⏰ Expired: ${dateStr} ${timeStr}` :
+        `⏳ Expires: ${dateStr} ${timeStr}`;
+    } else {
+      expiryText = '♾️ Permanent Access';
+    }
+
+    const message = `${roleEmoji} *User Information*\n` +
+      '━━━━━━━━━━━━━━━━━━\n\n' +
+      `🆔 *User ID*\n\`${user.userId}\`\n\n` +
+      `🏷️ *Role*\n${roleEmoji} ${roleName}\n\n` +
+      `🟢 *Status*\n${status}\n\n` +
+      `📱 *Phone Number*\n${phone}\n\n` +
+      `💬 *WhatsApp*\n${paired}\n\n` +
+      `⏰ *Access Period*\n${expiryText}\n\n` +
+      '━━━━━━━━━━━━━━━━━━';
+
+    const backButton = new InlineKeyboard().text(
+      '🔙 Back to List',
+      'back_to_users',
+    );
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: backButton,
+    });
+
+    await ctx.answerCallbackQuery();
+  } catch (error) {
+    log.error({ error }, 'Error in view user detail');
+    await ctx.answerCallbackQuery({
+      text: '❌ Error loading user details',
+      show_alert: true,
+    });
+  }
+};
+
+// -- handleBackToUsersList --
+export const handleBackToUsersList = async (ctx) => {
+  try {
+    await ctx.answerCallbackQuery();
+    await ctx.deleteMessage();
+    await handleAdminUsersList(ctx);
+  } catch (error) {
+    log.error({ error }, 'Error in back to users list');
   }
 };
 

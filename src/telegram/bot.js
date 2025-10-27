@@ -23,6 +23,8 @@ import {
   handleAdminAddUserStart,
   handleAdminStatus,
   handleSetTrialDaysStart,
+  handleViewUserDetail,
+  handleBackToUsersList,
 } from './handlers/admin-buttons.js';
 import {
   handleBroadcastStart,
@@ -39,12 +41,12 @@ import {
   handleUserFixNomorStart,
   handleUserFixNomorInput,
 } from './handlers/email.js';
+import { handleOwnerWAMenuStart } from './handlers/wa-menu.js';
 import { handleError } from './handlers/errors.js';
 import {
   addUserRoleKeyboard,
   ownerMainMenu,
   userMainMenu,
-  ownerPairingMenu,
 } from './keyboards.js';
 
 const log = createLogger('TelegramBot');
@@ -74,6 +76,26 @@ export const createBot = () => {
         await handleBioPhoneInput(ctx);
         return;
       }
+    } catch (error) {
+      await handleError(ctx, error);
+    }
+  });
+
+  bot.on('callback_query:data', async (ctx) => {
+    try {
+      const data = ctx.callbackQuery.data;
+
+      if (data.startsWith('view_user:')) {
+        await handleViewUserDetail(ctx);
+        return;
+      }
+
+      if (data === 'back_to_users') {
+        await handleBackToUsersList(ctx);
+        return;
+      }
+
+      await ctx.answerCallbackQuery();
     } catch (error) {
       await handleError(ctx, error);
     }
@@ -129,17 +151,12 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📱 Pairing') {
-        const user = await getUser(ctx.from?.id);
-        if (user?.role === 'owner') {
-          ctx.session.waitingForPhone = false;
-          ctx.session.waitingForBioPhone = false;
-          ctx.session.adminAddUserId = undefined;
-          await ctx.reply('📱 WhatsApp Pairing\n\nSelect an action:', {
-            reply_markup: ownerPairingMenu(),
-          });
-          return;
-        }
+      if (text === '📱 WA Menu') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleOwnerWAMenuStart(ctx);
+        return;
       }
 
       if (text === '🔙 Back') {

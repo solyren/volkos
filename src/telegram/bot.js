@@ -28,10 +28,22 @@ import {
   handleBroadcastStart,
   handleBroadcastMessage,
 } from './handlers/broadcast.js';
+import {
+  handleOwnerEmailMenuStart,
+  handleOwnerSetTemplateStart,
+  handleOwnerEmailTemplateInput,
+  handleOwnerViewTemplate,
+  handleOwnerDeleteTemplate,
+  handleUserSetupEmailStart,
+  handleUserSetupEmailInput,
+  handleUserFixNomorStart,
+  handleUserFixNomorInput,
+} from './handlers/email.js';
 import { handleError } from './handlers/errors.js';
 import {
   addUserRoleKeyboard,
   ownerMainMenu,
+  userMainMenu,
   ownerPairingMenu,
 } from './keyboards.js';
 
@@ -78,6 +90,11 @@ export const createBot = () => {
         ctx.session.adminAddUserDays = undefined;
         ctx.session.settingTrialDays = false;
         ctx.session.waitingForBroadcast = false;
+        ctx.session.settingEmailTemplate = false;
+        ctx.session.setupEmail = undefined;
+        ctx.session.fixingNomor = false;
+        ctx.session.extendingUser = false;
+        ctx.session.removingUser = false;
         const user = await getUser(ctx.from?.id);
         const msg = '✅ Cancelled';
         if (user?.role === 'owner') {
@@ -85,13 +102,30 @@ export const createBot = () => {
             reply_markup: ownerMainMenu(),
           });
         } else {
-          await ctx.reply(msg);
+          await ctx.reply(msg, {
+            reply_markup: userMainMenu(),
+          });
         }
         return;
       }
 
       if (ctx.session?.waitingForBroadcast) {
         await handleBroadcastMessage(ctx);
+        return;
+      }
+
+      if (ctx.session?.settingEmailTemplate) {
+        await handleOwnerEmailTemplateInput(ctx, text);
+        return;
+      }
+
+      if (ctx.session?.setupEmail) {
+        await handleUserSetupEmailInput(ctx, text);
+        return;
+      }
+
+      if (ctx.session?.fixingNomor) {
+        await handleUserFixNomorInput(ctx, text);
         return;
       }
 
@@ -479,6 +513,45 @@ export const createBot = () => {
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
         await handleCheckBioCommand(ctx);
+        return;
+      }
+
+      if (text === '📧 Email Menu') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleOwnerEmailMenuStart(ctx);
+        return;
+      }
+
+      if (text === '📝 Set Template') {
+        await handleOwnerSetTemplateStart(ctx);
+        return;
+      }
+
+      if (text === '👁️ View Template') {
+        await handleOwnerViewTemplate(ctx);
+        return;
+      }
+
+      if (text === '🗑️ Delete Template') {
+        await handleOwnerDeleteTemplate(ctx);
+        return;
+      }
+
+      if (text === '📧 Setup Email') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleUserSetupEmailStart(ctx);
+        return;
+      }
+
+      if (text === '🔧 Fix Nomor') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleUserFixNomorStart(ctx);
         return;
       }
 

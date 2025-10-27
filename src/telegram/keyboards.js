@@ -16,6 +16,8 @@ export const ownerMainMenu = () => {
     .text('📱 Pairing')
     .row()
     .text('🔍 Check Bio')
+    .text('📧 Email Menu')
+    .row()
     .text('❓ Help')
     .resized();
 };
@@ -49,6 +51,9 @@ export const userMainMenu = () => {
     .row()
     .text('🔍 Check Bio')
     .text('❌ Disconnect')
+    .row()
+    .text('📧 Setup Email')
+    .text('🔧 Fix Nomor')
     .row()
     .text('❓ Help')
     .text('🔙 Cancel')

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.0](https://github.com/solyren/volkos/compare/volkos-v0.1.0...volkos-v0.2.0) (2025-10-28)
+
+
+### Features
+
+* **cooldown:** add sistem cooldowm di check bio dan email ([888967c](https://github.com/solyren/volkos/commit/888967c7e21e8a21a12e0b57d7756abec19b4089))
+* **group:** add sistem verifikasi group ([1916f1c](https://github.com/solyren/volkos/commit/1916f1cc7d02649428c573545bc0785b1feb88a1))
+
+
+### Bug Fixes
+
+* **add-user:** fix role yang tidak kediteksi ([fd8bedc](https://github.com/solyren/volkos/commit/fd8bedcbec3fe82de128473b59b67fc9dcd699f2))
+* **cancel:** fix tombol cancel yang muncul terus ([6f4b429](https://github.com/solyren/volkos/commit/6f4b4290e1809d6b6715b2d0a3b8d4a58c961ad7))
+* **check-bio:** background task + no progress updates for non-blocking concurrent users ([b1cef18](https://github.com/solyren/volkos/commit/b1cef18c420e0ec2c84e50a7845b6f3aaf69cc37))
+* **cooldown:** fix cooldown yg tidak bekerja ([e0e41dc](https://github.com/solyren/volkos/commit/e0e41dce222b1a85f051fccb42ab37caedbfaf40))
+* limit): fix rate limit pada check bio ([d5512e3](https://github.com/solyren/volkos/commit/d5512e31cee409b3ba5bee881d6b98bb770313a0))
+* **trial:** fix perpanjangan trial yang ga kedetect ([0ead58c](https://github.com/solyren/volkos/commit/0ead58c5c0528150d33539c983c0595f49039ad6))
+
+
+### Docs
+
+* **readme:** update dokumentasi menjadi yanh terbaru ([3944713](https://github.com/solyren/volkos/commit/3944713d37dc45f06781f676289815c603685714))
+
 ## [0.1.0](https://github.com/solyren/volkos/compare/volkos-v0.0.1...volkos-v0.1.0) (2025-10-27)
 
 

@@ -7,6 +7,7 @@ import {
   getEmailTemplate,
 } from '../../db/email.js';
 import { getUser } from '../../db/users.js';
+import { checkCooldown } from '../../db/cooldown.js';
 import { ownerMainMenu, userMainMenu, cancelKeyboard } from '../keyboards.js';
 import { ownerEmailMenu } from '../keyboards-email.js';
 import { getRedis } from '../../db/redis.js';
@@ -464,6 +465,8 @@ export const handleUserFixNomorInput = async (ctx, text) => {
       subject: `Fix Number Request - ${nomor}`,
       text: emailBody,
     });
+
+    await checkCooldown(userId, 'fixnomor', 120);
 
     ctx.session.fixingNomor = false;
 

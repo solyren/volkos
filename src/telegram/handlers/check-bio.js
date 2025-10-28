@@ -5,6 +5,7 @@ import { getUserSocket } from '../../whatsapp/socket-pool.js';
 import { fetchBioForUser } from '../../whatsapp/utils.js';
 import { formatErrorMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
+import { checkCooldown } from '../../db/cooldown.js';
 import { cancelKeyboard, ownerMainMenu, userMainMenu } from '../keyboards.js';
 
 const log = createLogger('TelegramCheckBio');
@@ -343,6 +344,16 @@ export const handleCheckBioCommand = async (ctx) => {
   try {
     const userId = ctx.from?.id;
     log.info(`[CHECK-BIO] User ${userId} requested check bio`);
+
+    const cooldown = await checkCooldown(userId, 'checkbio', 20);
+    if (cooldown.onCooldown) {
+      await ctx.reply(
+        '⏳ *Cooldown Aktif*\n\n' +
+        `Tunggu ${cooldown.remainingSeconds} detik lagi sebelum check bio lagi.`,
+        { parse_mode: 'Markdown' },
+      );
+      return;
+    }
 
     const user = await getUser(userId);
 

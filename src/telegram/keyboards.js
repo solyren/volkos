@@ -16,7 +16,7 @@ export const ownerMainMenu = () => {
     .text('📱 Menu WA')
     .row()
     .text('📧 Menu Email')
-    .text('❓ Bantuan')
+    .text('❓ Help')
     .row()
     .resized();
 };

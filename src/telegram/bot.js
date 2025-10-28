@@ -335,8 +335,8 @@ export const createBot = () => {
 
       if (ctx.session?.adminAddUserId && typeof ctx.session.adminAddUserId === 'number') {
         const roleMap = {
-          '👤 User': 'user',
-          '👑 Owner': 'owner',
+          '👤 Pengguna': 'user',
+          '👑 Pemilik': 'owner',
         };
 
         const role = roleMap[text];

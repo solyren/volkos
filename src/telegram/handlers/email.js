@@ -261,7 +261,7 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
         'Format: 16 karakter (spasi boleh)\n\n' +
         '*Contoh:*\n' +
         '`abcd efgh ijkl mnop`\n\n' +
-        '💡 Dapetin dari: Google Account → Security → App passwords',
+        '💡 Dapetin dari: Google Account → Security → https://myaccount.google.com/apppasswords',
         { parse_mode: 'Markdown' },
       );
       return;

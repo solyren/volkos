@@ -11,6 +11,7 @@ import { formatPhoneNumber } from './utils.js';
 import { socketPool } from '../db/sockets.js';
 import { removeWhatsAppPairing } from '../db/users.js';
 import { getUserAuthPath, deleteUserAuth } from './auth-manager.js';
+import { removeSocketLimiter } from './socket-limiter.js';
 
 const log = createLogger('WhatsAppSocketPool');
 
@@ -127,6 +128,7 @@ export const disconnectUserSocket = async (userId) => {
 
       log.info(`[DEBUG] Cleaning up resources for user ${userId}`);
       socketPool.removeSocket(userId);
+      removeSocketLimiter(userId);
 
       await removeWhatsAppPairing(userId);
       log.info(`[DEBUG] Database whatsappPaired cleared for user ${userId}`);
@@ -137,6 +139,7 @@ export const disconnectUserSocket = async (userId) => {
       log.info(`WhatsApp socket disconnected and cleaned for user ${userId}`);
     } else {
       log.warn(`[DEBUG] No socket found for user ${userId}, cleaning up database only`);
+      removeSocketLimiter(userId);
       await removeWhatsAppPairing(userId);
       await deleteUserAuth(userId);
     }

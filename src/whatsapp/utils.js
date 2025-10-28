@@ -1,5 +1,6 @@
 import { createLogger } from '../logger.js';
 import { getCachedBio, setCachedBio } from './cache.js';
+import { getSocketLimiter } from './socket-limiter.js';
 
 const log = createLogger('WhatsAppUtils');
 
@@ -38,7 +39,7 @@ export const formatBioDate = (timestamp) => {
 };
 
 // -- fetchBioForUser --
-export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
+export const fetchBioForUser = async (socket, phoneNumber, useCache = true, userId = null) => {
   try {
     if (!socket) {
       throw new Error('Socket gak connect');
@@ -58,7 +59,16 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true) => {
     }
 
     log.info(`[DEBUG BIO] Fetching status for JID: ${jid}`);
-    const statusResponse = await socket.fetchStatus(jid);
+
+    let statusResponse;
+    if (userId) {
+      const limiter = getSocketLimiter(userId);
+      statusResponse = await limiter.run(async () => {
+        return await socket.fetchStatus(jid);
+      });
+    } else {
+      statusResponse = await socket.fetchStatus(jid);
+    }
     log.info(`[DEBUG BIO] Status response: ${JSON.stringify(statusResponse)}`);
 
     if (!statusResponse || statusResponse.length === 0) {

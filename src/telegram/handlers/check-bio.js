@@ -103,7 +103,13 @@ const readFileContent = async (ctx, fileId) => {
 };
 
 // -- processBulkBioAdvanced --
-const processBulkBioAdvanced = async (ctx, socket, numbers) => {
+const processBulkBioAdvanced = async (
+  ctx,
+  socket,
+  numbers,
+  userId,
+  noProgress = false,
+) => {
   const total = numbers.length;
   const results = {
     success: [],
@@ -118,14 +124,21 @@ const processBulkBioAdvanced = async (ctx, socket, numbers) => {
   let lastProgressText = '';
   const startTime = Date.now();
 
-  const progressMsg = await ctx.reply(
-    `🚀 Processing ${total} numbers...\n` +
-    '⏳ Adaptive mode (10/sec start)...\n' +
-    `📊 0/${total} (0%)\n` +
-    '⚡ Smart rate limiting active',
-  );
+  let progressMsg = null;
+  if (!noProgress) {
+    progressMsg = await ctx.reply(
+      `🚀 Processing ${total} numbers...\n` +
+      '⏳ Adaptive mode (10/sec start)...\n' +
+      `📊 0/${total} (0%)\n` +
+      '⚡ Smart rate limiting active',
+    );
+  }
 
   const updateProgress = async () => {
+    if (noProgress) {
+      return;
+    }
+
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const percent = Math.round((processed / total) * 100);
     const speed = (processed / (Date.now() - startTime)) * 1000;
@@ -153,10 +166,10 @@ const processBulkBioAdvanced = async (ctx, socket, numbers) => {
     }
   };
 
-  const fetchBioAdaptive = async (number) => {
+  const fetchBioAdaptive = async (number, userIdContext) => {
     return cache.getOrFetch(number, async () => {
       try {
-        const result = await fetchBioForUser(socket, number);
+        const result = await fetchBioForUser(socket, number, true, userIdContext);
 
         if (result.success) {
           results.success.push({
@@ -194,16 +207,16 @@ const processBulkBioAdvanced = async (ctx, socket, numbers) => {
     });
   };
 
-  const processBatch = async (batch) => {
+  const processBatch = async (batch, userIdContext) => {
     const queue = new PQueue({
-      concurrency: 3,
-      interval: 1000,
-      intervalCap: rateLimiter.currentRate,
+      concurrency: 1,
+      interval: 200,
+      intervalCap: 1,
     });
 
-    const tasks = batch.map((number) =>
+    for (const number of batch) {
       queue.add(async () => {
-        await fetchBioAdaptive(number);
+        await fetchBioAdaptive(number, userIdContext);
         processed++;
 
         if (processed % Math.ceil(total / 20) === 0 || processed === total) {
@@ -212,29 +225,32 @@ const processBulkBioAdvanced = async (ctx, socket, numbers) => {
 
         const delay = rateLimiter.getDelay();
         await new Promise((resolve) => globalThis.setTimeout(resolve, delay));
-      }),
-    );
+      });
 
-    await Promise.all(tasks);
+      await new Promise((resolve) => globalThis.setImmediate(resolve));
+    }
+
+    await queue.onIdle();
   };
 
-  const batchSize = Math.min(100, Math.ceil(total / 5));
+  const batchSize = 20;
   const batches = [];
   for (let i = 0; i < total; i += batchSize) {
     batches.push(numbers.slice(i, i + batchSize));
   }
 
-  log.info(`[ADVANCED] Split ${total} numbers into ${batches.length} batches`);
+  log.info(`[ADVANCED] Split ${total} numbers into ${batches.length} batches (20 per batch)`);
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i];
     log.info(`[BATCH ${i + 1}/${batches.length}] Processing ${batch.length} numbers`);
-    await processBatch(batch);
+    await processBatch(batch, userId);
 
     if (i < batches.length - 1) {
-      const batchDelay = 2000;
-      log.info(`[BATCH] Waiting ${batchDelay}ms before next batch...`);
+      const batchDelay = 500;
+      log.info(`[BATCH] Yielding ${batchDelay}ms for other requests...`);
       await new Promise((resolve) => globalThis.setTimeout(resolve, batchDelay));
+      await new Promise((resolve) => globalThis.setImmediate(resolve));
     }
   }
 
@@ -392,6 +408,106 @@ export const handleCheckBioCommand = async (ctx) => {
   }
 };
 
+// -- processBioInBackground --
+const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) => {
+  try {
+    let numbersToProcess = numbers;
+    let remainingNumbers = [];
+
+    if (numbers.length > 500) {
+      numbersToProcess = numbers.slice(0, 500);
+      remainingNumbers = numbers.slice(500);
+      log.info(`[BG] Split: processing 500, remaining ${remainingNumbers.length}`);
+    }
+
+    const username = ctx.from?.username || `User${userId}`;
+    log.info(
+      `[BG-${userId}] Starting background check bio for ` +
+      `${numbersToProcess.length} numbers (@${username})`,
+    );
+
+    const results = await processBulkBioAdvanced(
+      ctx,
+      socket,
+      numbersToProcess,
+      userId,
+      true,
+    );
+
+    const user = await getUser(userId);
+    const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
+
+    if (numbersToProcess.length <= 10 && !isFromFile && remainingNumbers.length === 0) {
+      const resultText = formatBulkResults(results);
+      await ctx.api.sendMessage(userId, resultText, {
+        parse_mode: 'Markdown',
+        reply_markup: menu,
+      });
+    } else {
+      await ctx.api.sendMessage(
+        userId,
+        '📋 *Ringkasan Hasil*\n\n' +
+        `✅ Berhasil: ${results.success.length}\n` +
+        `❌ Gagal: ${results.failed.length}\n` +
+        `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
+        `📊 Diproses: ${numbersToProcess.length}\n` +
+        (remainingNumbers.length > 0 ? `📌 Sisa: ${remainingNumbers.length} nomor\n\n` : '') +
+        '📄 File terlampir di bawah:',
+        { parse_mode: 'Markdown' },
+      );
+
+      const withBioTxt = generateWithBioTxt(results);
+      const withBioBuffer = globalThis.Buffer.from(withBioTxt, 'utf-8');
+      await ctx.api.sendDocument(
+        userId,
+        new InputFile(withBioBuffer, `with_bio_${Date.now()}.txt`),
+        { caption: '✅ Nomor dengan bio' },
+      );
+
+      const noBioTxt = generateNoBioTxt(results);
+      const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
+      await ctx.api.sendDocument(
+        userId,
+        new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
+        { caption: '❌ Nomor tanpa bio / failed' },
+      );
+
+      if (remainingNumbers.length > 0) {
+        const remaining = remainingNumbers.length;
+        const caption = `📌 ${remaining} nomor belum diproses\nKirim ulang untuk lanjut`;
+        const remainingTxt = generateRemainingNumbersTxt(remainingNumbers);
+        const remainingBuffer = globalThis.Buffer.from(remainingTxt, 'utf-8');
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(remainingBuffer, `remaining_numbers_${Date.now()}.txt`),
+          {
+            caption,
+            reply_markup: menu,
+          },
+        );
+      } else {
+        await ctx.api.sendMessage(userId, '✅ Selesai! Pilih menu di bawah:', {
+          reply_markup: menu,
+        });
+      }
+    }
+
+    log.info(
+      `[BG-${userId}] Check bio completed! ` +
+      `Success: ${results.success.length}, ` +
+      `Failed: ${results.failed.length}, ` +
+      `NoBio: ${results.noBio.length}`,
+    );
+  } catch (error) {
+    log.error({ error }, '[BG] Error in background check bio');
+    try {
+      await ctx.api.sendMessage(userId, `❌ Error: ${error.message || 'Gagal cek bio'}`);
+    } catch (replyErr) {
+      log.error({ error: replyErr }, '[BG] Failed to send error message');
+    }
+  }
+};
+
 // -- handleBioPhoneInput --
 export const handleBioPhoneInput = async (ctx) => {
   try {
@@ -481,9 +597,6 @@ export const handleBioPhoneInput = async (ctx) => {
         log.warn(`[SINGLE] Failed: ${result.error}`);
       }
     } else {
-      let numbersToProcess = numbers;
-      let remainingNumbers = [];
-
       if (numbers.length > 500) {
         await ctx.reply(
           '⚠️ *Terlalu Banyak!*\n\n' +
@@ -499,70 +612,20 @@ export const handleBioPhoneInput = async (ctx) => {
         return;
       }
 
-      if (numbers.length > 500) {
-        numbersToProcess = numbers.slice(0, 500);
-        remainingNumbers = numbers.slice(500);
-        log.info(`[BULK] Split: processing 500, remaining ${remainingNumbers.length}`);
-      }
+      await ctx.reply(
+        '⏳ *Mulai Check Bio*\n\n' +
+        `Processing ${numbers.length} nomor...\n` +
+        'Hasil akan dikirim segera setelah selesai.',
+        { parse_mode: 'Markdown' },
+      );
 
-      log.info(`[BULK] Processing ${numbersToProcess.length} numbers for user ${userId}`);
+      log.info(`[HANDLER] User ${userId} started check bio for ${numbers.length} nomor`);
+      log.info('[HANDLER] Spawning background task, returning to event loop');
 
-      const results = await processBulkBioAdvanced(ctx, socket, numbersToProcess);
-
-      if (
-        numbersToProcess.length <= 10 &&
-        !isFromFile &&
-        remainingNumbers.length === 0
-      ) {
-        const resultText = formatBulkResults(results);
-        await ctx.reply(resultText, {
-          parse_mode: 'Markdown',
-          reply_markup: menu,
+      processBioInBackground(ctx, socket, numbers, userId, isFromFile)
+        .catch((err) => {
+          log.error({ error: err }, '[BG] Unhandled error in background task');
         });
-      } else {
-        await ctx.reply(
-          '📋 *Ringkasan Hasil*\n\n' +
-          `✅ Berhasil: ${results.success.length}\n` +
-          `❌ Gagal: ${results.failed.length}\n` +
-          `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
-          `📊 Diproses: ${numbersToProcess.length}\n` +
-          (remainingNumbers.length > 0 ? `📌 Sisa: ${remainingNumbers.length} nomor\n\n` : '') +
-          '📄 File terlampir di bawah:',
-          { parse_mode: 'Markdown' },
-        );
-
-        const withBioTxt = generateWithBioTxt(results);
-        const withBioBuffer = globalThis.Buffer.from(withBioTxt, 'utf-8');
-        await ctx.replyWithDocument(
-          new InputFile(withBioBuffer, `with_bio_${Date.now()}.txt`),
-          { caption: '✅ Nomor dengan bio' },
-        );
-
-        const noBioTxt = generateNoBioTxt(results);
-        const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
-        await ctx.replyWithDocument(
-          new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
-          { caption: '❌ Nomor tanpa bio / failed' },
-        );
-
-        if (remainingNumbers.length > 0) {
-          const remaining = remainingNumbers.length;
-          const caption = `📌 ${remaining} nomor belum diproses\nKirim ulang untuk lanjut`;
-          const remainingTxt = generateRemainingNumbersTxt(remainingNumbers);
-          const remainingBuffer = globalThis.Buffer.from(remainingTxt, 'utf-8');
-          await ctx.replyWithDocument(
-            new InputFile(remainingBuffer, `remaining_numbers_${Date.now()}.txt`),
-            {
-              caption,
-              reply_markup: menu,
-            },
-          );
-        } else {
-          await ctx.reply('✅ Selesai! Pilih menu di bawah:', {
-            reply_markup: menu,
-          });
-        }
-      }
     }
 
     ctx.session.waitingForBioPhone = false;

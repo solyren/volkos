@@ -7,7 +7,7 @@ import {
   getEmailTemplate,
 } from '../../db/email.js';
 import { getUser } from '../../db/users.js';
-import { checkCooldown } from '../../db/cooldown.js';
+import { checkCooldown, getCooldownRemainingTime } from '../../db/cooldown.js';
 import { ownerMainMenu, userMainMenu, cancelKeyboard } from '../keyboards.js';
 import { ownerEmailMenu } from '../keyboards-email.js';
 import { getRedis } from '../../db/redis.js';
@@ -363,6 +363,16 @@ export const handleUserFixNomorStart = async (ctx) => {
   try {
     const userId = ctx.from?.id;
 
+    const cooldownRemaining = await getCooldownRemainingTime(userId, 'fixnomor');
+    if (cooldownRemaining > 0) {
+      await ctx.reply(
+        '⏳ *Cooldown Aktif*\n\n' +
+        `Tunggu ${cooldownRemaining} detik lagi sebelum fix nomor lagi.`,
+        { parse_mode: 'Markdown' },
+      );
+      return;
+    }
+
     const template = await getEmailTemplate();
     if (!template) {
       await ctx.reply(
@@ -418,6 +428,17 @@ export const handleUserFixNomorInput = async (ctx, text) => {
   try {
     const userId = ctx.from?.id;
     const nomor = text.trim();
+
+    const cooldownRemaining = await getCooldownRemainingTime(userId, 'fixnomor');
+    if (cooldownRemaining > 0) {
+      ctx.session.fixingNomor = false;
+      await ctx.reply(
+        '⏳ *Cooldown Aktif*\n\n' +
+        `Tunggu ${cooldownRemaining} detik lagi sebelum fix nomor lagi.`,
+        { parse_mode: 'Markdown' },
+      );
+      return;
+    }
 
     if (!/^\d{10,15}$/.test(nomor)) {
       await ctx.reply(

@@ -20,6 +20,12 @@ export const config = {
   system: {
     defaultTrialDays: Number(process.env.DEFAULT_TRIAL_DAYS) || 1,
   },
+  groups: {
+    requiredGroupId1: process.env.REQUIRED_GROUP_ID_1 ?
+      Number(process.env.REQUIRED_GROUP_ID_1) : null,
+    requiredGroupId2: process.env.REQUIRED_GROUP_ID_2 ?
+      Number(process.env.REQUIRED_GROUP_ID_2) : null,
+  },
   thumbnails: {
     welcomeOwner:
       process.env.THUMBNAIL_WELCOME_OWNER ||

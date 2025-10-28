@@ -3,6 +3,11 @@ import { getUser } from '../../db/users.js';
 import { isUserSocketConnected } from '../../whatsapp/socket-pool.js';
 import { ownerMainMenu, userMainMenu } from '../keyboards.js';
 import { config } from '../../config.js';
+import {
+  checkGroupMembership,
+  getGroupVerificationMessage,
+  getGroupVerificationMarkup,
+} from '../../db/groups.js';
 
 const log = createLogger('TelegramMessages');
 
@@ -53,6 +58,18 @@ export const handleStartCommand = async (ctx) => {
     const userId = ctx.from?.id;
     const ownerId = Number(process.env.TELEGRAM_ADMIN_ID);
     const isOwner = userId === ownerId;
+
+    const groupCheck = await checkGroupMembership(ctx, userId);
+    if (!groupCheck.isMember) {
+      const message = getGroupVerificationMessage(groupCheck.missingGroups);
+      const keyboard = getGroupVerificationMarkup(groupCheck.missingGroups);
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard,
+      });
+      return;
+    }
+
     const { createUser, updateUser } = await import('../../db/users.js');
     let user = await getUser(userId);
 

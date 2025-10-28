@@ -16,6 +16,8 @@
 - [Instalasi](#-instalasi)
 - [Konfigurasi](#-konfigurasi)
 - [Panduan Pengguna](#-panduan-pengguna)
+  - [Akses Bot (PM Only)](#-akses-bot)
+  - [Verifikasi Grup](#verifikasi-grup)
 - [Admin Panel](#-admin-panel)
 - [Fitur Lengkap](#-fitur-lengkap)
 - [Pengembangan](#-pengembangan)
@@ -57,6 +59,30 @@ DEFAULT_TRIAL_DAYS=1
 **Cari Telegram User ID**: Kirim ke [@userinfobot](https://t.me/userinfobot)
 
 ## 📱 Panduan Pengguna
+
+### ⚠️ Akses Bot
+
+> **Bot hanya bisa diakses via Private Message (PM)**
+> 
+> Bot akan **mengabaikan semua pesan di group/channel**. Harus chat langsung ke bot:
+> - ✅ Chat pribadi dengan bot → **Berfungsi normal**
+> - ❌ Pesan di group → **Diabaikan**
+> 
+> Jika bot ada di group kamu, dia tidak akan merespons. Gunakan bot melalui DM (Direct Message) saja!
+
+### Verifikasi Grup
+
+Pengguna baru harus join grup berikut untuk akses bot:
+- **urGank** - Group komunitas
+- **urGank Chat** - Group diskusi
+
+**Alur Verifikasi:**
+1. Kirim `/start` ke bot
+2. Klik tombol grup untuk join
+3. Klik "✅ Sudah Join" untuk verifikasi otomatis
+4. Akses bot diberikan ✅
+
+> **Catatan Owner:** Pemilik bot (admin) otomatis bypass verifikasi grup - tidak perlu join.
 
 ### Menu User
 

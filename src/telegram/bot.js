@@ -3,6 +3,7 @@ import { createLogger } from '../logger.js';
 import { config } from '../config.js';
 import { checkUserExists, checkUserActive } from '../middleware/auth.js';
 import { getUser } from '../db/users.js';
+import { checkGroupMembership } from '../db/groups.js';
 import {
   handlePairCommand,
   handlePhoneInput,
@@ -57,6 +58,13 @@ export const createBot = () => {
 
   bot.use(session({ initial: () => ({}) }));
 
+  bot.use((ctx, next) => {
+    if (ctx.chat?.type !== 'private') {
+      return;
+    }
+    return next();
+  });
+
   bot.use(checkUserExists);
 
   bot.use(async (ctx, next) => {
@@ -84,6 +92,26 @@ export const createBot = () => {
   bot.on('callback_query:data', async (ctx) => {
     try {
       const data = ctx.callbackQuery.data;
+
+      if (data === 'verify_group') {
+        const userId = ctx.from?.id;
+        const groupCheck = await checkGroupMembership(ctx, userId);
+
+        if (groupCheck.isMember) {
+          await ctx.answerCallbackQuery({
+            text: '✅ Verifikasi berhasil! Akses diberikan.',
+            show_alert: false,
+          });
+          await ctx.deleteMessage();
+          await handleStartCommand(ctx);
+        } else {
+          await ctx.answerCallbackQuery({
+            text: '❌ Kamu belum join semua grup. Coba lagi setelah join.',
+            show_alert: true,
+          });
+        }
+        return;
+      }
 
       if (data.startsWith('view_user:')) {
         await handleViewUserDetail(ctx);

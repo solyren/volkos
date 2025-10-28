@@ -144,10 +144,10 @@ export const extendUser = async (userId, additionalDays) => {
     const additionalMs = additionalDays * 24 * 60 * 60 * 1000;
     const newExpiry = Math.max(currentExpiry, now) + additionalMs;
 
-    const updatedUser = { ...user, expiryTime: newExpiry };
+    const updatedUser = { ...user, expiryTime: newExpiry, isActive: true };
     const redis = getRedis();
     await redis.set(`user:${userId}`, JSON.stringify(updatedUser));
-    log.info({ userId, additionalDays, newExpiry }, 'User extended');
+    log.info({ userId, additionalDays, newExpiry }, 'User extended and reactivated');
     return updatedUser;
   } catch (error) {
     log.error({ error, userId }, 'Failed to extend user');

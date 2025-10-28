@@ -93,19 +93,5 @@ export const getGroupVerificationMessage = (missingGroups) => {
     return null;
   }
 
-  let message = '❌ *Akses Ditolak*\n\n' +
-    'Kamu harus join grup berikut dulu:\n\n';
-
-  missingGroups.forEach((group, index) => {
-    message += `${index + 1}. *${group.name}*\n`;
-  });
-
-  message += '\n💡 *Cara:*\n' +
-    '1. Klik tombol grup di bawah\n' +
-    '2. Join grup\n' +
-    '3. Klik tombol "✅ Sudah Join"\n' +
-    '4. Bot akan verify otomatis\n\n' +
-    '⏳ Tunggu beberapa detik...';
-
-  return message;
+  return 'Harus Join Grub Terlebih Dahulu';
 };

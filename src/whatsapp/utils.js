@@ -7,19 +7,23 @@ const log = createLogger('WhatsAppUtils');
 // -- formatPhoneNumber --
 export const formatPhoneNumber = (phone) => {
   let formatted = phone.replace(/\D/g, '');
-  if (!formatted.startsWith('62') && formatted.startsWith('0')) {
-    formatted = '62' + formatted.substring(1);
+  if (formatted.length === 0) {
+    return formatted;
   }
-  if (!formatted.startsWith('62')) {
-    formatted = '62' + formatted;
+  if (!formatted.startsWith('62') && formatted.length > 9 && formatted.startsWith('8')) {
+    formatted = '62' + formatted.substring(1);
   }
   return formatted;
 };
 
 // -- isValidPhoneNumber --
 export const isValidPhoneNumber = (phone) => {
-  const formatted = formatPhoneNumber(phone);
-  return formatted.length >= 10 && formatted.length <= 15;
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length < 10 || cleaned.length > 15) {
+    return false;
+  }
+  const countryCodeRegex = /^\d{1,3}\d{6,14}$/;
+  return countryCodeRegex.test(cleaned);
 };
 
 // -- handleConnectionError --

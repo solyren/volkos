@@ -26,8 +26,8 @@ export const handlePairCommand = async (ctx) => {
     await deleteUserAuth(userId);
     socketPool.removeSocket(userId);
 
-    const msg = 'Kirim nomor WhatsApp kamu dengan kode negara ' +
-      '(contoh: +62812345678):';
+    const msg = 'Kirim nomor WhatsApp kamu tanda tanda + ' +
+      '(contoh: 62812345678, 1234567890, 442071838750):';
     await ctx.reply(msg, {
       reply_markup: cancelKeyboard(),
     });
@@ -51,9 +51,13 @@ export const handlePhoneInput = async (ctx) => {
     const phone = ctx.message.text.trim();
 
     if (!isValidPhoneNumber(phone)) {
-      await ctx.reply('❌ Nomor ga valid. Coba lagi pake kode negara.', {
-        reply_markup: cancelKeyboard(),
-      });
+      await ctx.reply(
+        '❌ Format nomor ga valid. Kirim dengan kode negara ' +
+        '(contoh: 62812345678 atau 1234567890).',
+        {
+          reply_markup: cancelKeyboard(),
+        },
+      );
       ctx.session.waitingForPhone = false;
       return;
     }

@@ -68,7 +68,9 @@ export const createBot = () => {
   bot.use(checkUserExists);
 
   bot.use(async (ctx, next) => {
-    if (ctx.from?.id === Number(process.env.TELEGRAM_ADMIN_ID)) {
+    const isOwner = ctx.from?.id === Number(process.env.TELEGRAM_ADMIN_ID);
+    const isStartCommand = ctx.message?.text === '/start';
+    if (isOwner || isStartCommand) {
       return next();
     }
     return checkUserActive(ctx, next);

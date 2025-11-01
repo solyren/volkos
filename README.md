@@ -178,31 +178,59 @@ npm run lint:check  # Check only
 ### Coding Standards
 
 - **ESLint**: Wajib pass (0 errors)
-- **Function Markers**: `// -- functionName --` di setiap function
+- **Function Markers**: `// -- functionName --` di SETIAP function (ATURAN MUTLAK)
+- **Comments**: Hanya boleh ada function marker, TIDAK boleh ada komentar lain
 - **Style**: const/let only, single quotes, semicolons, curly braces
 - **Logging**: Gunakan logger, bukan console.log
 - **File Names**: kebab-case.js
+
+### ATURAN MUTLAK DEVELOPMENT
+
+1. **SETIAP CODE berubah → Update AGENTS.md**
+   - Dokumentasikan perubahan struktur/logic di AGENTS.md
+   - Ini adalah peraturan mutlak yang tidak boleh dilanggar
+
+2. **Breaking Changes → Update README.md**
+   - Jika ada perubahan fitur user-facing
+   - Update dokumentasi pengguna
+
+3. **Function Markers (MANDATORY)**
+   ```javascript
+   // -- functionName --
+   export const functionName = async () => {
+     // No other comments allowed!
+   };
+   ```
+
+4. **ESLint Check**
+   ```bash
+   npm run lint  # HARUS 0 errors sebelum commit
+   ```
 
 ### Commit Convention
 
 ```
 feat: add new feature
 fix: fix bug
-docs: documentation
+docs: update AGENTS.md / README.md
 refactor: code cleanup
 ```
 
-Sebelum commit: `npm run lint` + manual test
+**Sebelum commit**: `npm run lint` + manual test + review `git diff`
 
 ### Best Practices
 
-- ✅ Update AGENTS.md setiap ada perubahan
+- ✅ Update AGENTS.md setiap ada CODE changes (PERATURAN MUTLAK)
 - ✅ Update README.md untuk breaking changes
-- ✅ Add function markers untuk kode baru
+- ✅ Add function markers (// -- name --) untuk SETIAP function
 - ✅ No hardcoded credentials
 - ✅ Validate user input
+- ❌ No comments selain function markers
 - ❌ No `// eslint-disable` comments
 - ❌ No console.log di production
+- ❌ No var, gunakan const/let
+
+**Lihat AGENTS.md untuk dokumentasi lengkap pengembangan.**
 
 ---
 

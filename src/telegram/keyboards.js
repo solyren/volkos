@@ -16,7 +16,10 @@ export const ownerMainMenu = () => {
     .text('📱 Menu WA')
     .row()
     .text('📧 Menu Email')
+    .text('📄 Convert XLSX')
+    .row()
     .text('❓ Help')
+    .text('🔙 Batal')
     .row()
     .resized();
 };

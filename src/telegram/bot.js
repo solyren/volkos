@@ -43,6 +43,10 @@ import {
   handleUserFixNomorInput,
 } from './handlers/email.js';
 import { handleOwnerWAMenuStart } from './handlers/wa-menu.js';
+import {
+  handleConvertXlsxStart,
+  handleXlsxFileInput,
+} from './handlers/convert-xlsx.js';
 import { handleError } from './handlers/errors.js';
 import {
   addUserRoleKeyboard,
@@ -84,6 +88,10 @@ export const createBot = () => {
     try {
       if (ctx.session?.waitingForBioPhone) {
         await handleBioPhoneInput(ctx);
+        return;
+      }
+      if (ctx.session?.convertingXlsx) {
+        await handleXlsxFileInput(ctx);
         return;
       }
     } catch (error) {
@@ -568,6 +576,14 @@ export const createBot = () => {
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
         await handleOwnerEmailMenuStart(ctx);
+        return;
+      }
+
+      if (text === '📄 Convert XLSX') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleConvertXlsxStart(ctx);
         return;
       }
 

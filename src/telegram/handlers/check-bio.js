@@ -112,9 +112,10 @@ const processBulkBioAdvanced = async (
 ) => {
   const total = numbers.length;
   const results = {
-    success: [],
-    failed: [],
+    hasBio: [],
     noBio: [],
+    unregistered: [],
+    rateLimit: [],
   };
 
   const rateLimiter = new AdaptiveRateLimiter();
@@ -145,9 +146,10 @@ const processBulkBioAdvanced = async (
 
     const progressText =
       `🚀 Processing ${total} numbers...\n` +
-      `✅ Success: ${results.success.length}\n` +
-      `❌ Failed: ${results.failed.length}\n` +
-      `⚪ No Bio: ${results.noBio.length}\n` +
+      `✅ Ada Bio: ${results.hasBio.length}\n` +
+      `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
+      `❌ Tidak Terdaftar: ${results.unregistered.length}\n` +
+      `⏸️ Rate Limited: ${results.rateLimit.length}\n` +
       `📊 ${processed}/${total} (${percent}%)\n` +
       `⚡ Rate: ${rateLimiter.currentRate}/sec | Speed: ${speed.toFixed(1)}/sec\n` +
       `⏱️ Time: ${elapsed}s`;
@@ -171,8 +173,8 @@ const processBulkBioAdvanced = async (
       try {
         const result = await fetchBioForUser(socket, number, true, userIdContext);
 
-        if (result.success) {
-          results.success.push({
+        if (result.category === 'hasBio') {
+          results.hasBio.push({
             phone: result.phone,
             bio: result.bio,
             setAt: result.setAt,
@@ -181,26 +183,29 @@ const processBulkBioAdvanced = async (
           return result;
         }
 
-        if (result.error?.includes('no bio') || result.error?.includes('No Bio')) {
+        if (result.category === 'noBio') {
           results.noBio.push(number);
           rateLimiter.recordSuccess();
           return result;
         }
 
-        const isRateLimit = result.error?.includes('rate') ||
-          result.error?.includes('429') ||
-          result.error?.includes('Too many');
+        if (result.category === 'unregistered') {
+          results.unregistered.push(number);
+          rateLimiter.recordSuccess();
+          return result;
+        }
 
-        if (isRateLimit) {
+        if (result.category === 'rateLimit') {
+          results.rateLimit.push(number);
           rateLimiter.recordError(true);
           throw new Error('Rate limit - will retry');
         }
 
-        results.failed.push({ phone: number, error: result.error });
+        results.rateLimit.push(number);
         rateLimiter.recordError(false);
         return result;
       } catch (error) {
-        results.failed.push({ phone: number, error: error.message });
+        results.rateLimit.push(number);
         rateLimiter.recordError(true);
         throw error;
       }
@@ -258,84 +263,41 @@ const processBulkBioAdvanced = async (
   return results;
 };
 
-// -- formatBulkResults --
-const formatBulkResults = (results) => {
+
+
+// -- generateBioTxt --
+const generateBioTxt = (results) => {
   const lines = [];
 
-  lines.push('📋 *Hasil Check Bio*\n');
-  lines.push(`✅ Berhasil: ${results.success.length}`);
-  lines.push(`❌ Gagal: ${results.failed.length}`);
-  lines.push(`⚪ Gak Ada Bio: ${results.noBio.length}`);
-  lines.push(`📊 Total: ${results.success.length + results.failed.length + results.noBio.length}\n`);
-
-  if (results.success.length > 0) {
-    lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*✅ Ketemu Bio:*\n');
-
-    results.success.forEach((r, i) => {
-      lines.push(`${i + 1}. \`${r.phone}\``);
-      lines.push(`   📝 ${r.bio}`);
-      lines.push(`   📅 ${r.setAt}\n`);
-    });
-  }
-
-  if (results.noBio.length > 0) {
-    lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*⚪ Gak Ada Bio:*');
-    lines.push(results.noBio.map((n) => `\`${n}\``).join(', ') + '\n');
-  }
-
-  if (results.failed.length > 0) {
-    lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('*❌ Gagal:*');
-    results.failed.forEach((f) => {
-      lines.push(`\`${f.phone}\`: ${f.error}`);
-    });
-  }
-
-  return lines.join('\n');
-};
-
-// -- generateWithBioTxt --
-const generateWithBioTxt = (results) => {
-  const lines = ['=== NOMOR DENGAN BIO ===\n'];
-
-  if (results.success.length === 0) {
-    lines.push('(Tidak ada nomor dengan bio)\n');
-  } else {
-    results.success.forEach((r) => {
-      lines.push(`${r.phone}`);
-      lines.push(`Bio: ${r.bio}`);
-      lines.push(`Set: ${r.setAt}\n`);
-    });
-  }
+  results.hasBio.forEach((r) => {
+    lines.push(r.phone);
+  });
 
   return lines.join('\n');
 };
 
 // -- generateNoBioTxt --
 const generateNoBioTxt = (results) => {
-  const lines = ['=== NOMOR TANPA BIO / FAILED ===\n'];
+  const lines = [];
 
-  if (results.noBio.length === 0 && results.failed.length === 0) {
-    lines.push('(Semua nomor memiliki bio)\n');
-  } else {
-    if (results.noBio.length > 0) {
-      lines.push('--- TIDAK ADA BIO ---');
-      results.noBio.forEach((phone) => {
-        lines.push(`${phone} - No Bio`);
-      });
-      lines.push('');
-    }
+  results.noBio.forEach((phone) => {
+    lines.push(phone);
+  });
 
-    if (results.failed.length > 0) {
-      lines.push('--- FAILED ---');
-      results.failed.forEach((f) => {
-        lines.push(`${f.phone} - ${f.error}`);
-      });
-      lines.push('');
-    }
-  }
+  return lines.join('\n');
+};
+
+// -- generateNotRegisterTxt --
+const generateNotRegisterTxt = (results) => {
+  const lines = [];
+
+  results.unregistered.forEach((phone) => {
+    lines.push(phone);
+  });
+
+  results.rateLimit.forEach((phone) => {
+    lines.push(phone);
+  });
 
   return lines.join('\n');
 };
@@ -438,39 +400,66 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
 
     if (numbersToProcess.length <= 10 && !isFromFile && remainingNumbers.length === 0) {
-      const resultText = formatBulkResults(results);
-      await ctx.api.sendMessage(userId, resultText, {
-        parse_mode: 'Markdown',
-        reply_markup: menu,
-      });
+      await ctx.api.sendMessage(userId,
+        `✅ *Bio:* ${results.hasBio.length}\n` +
+        `⚪ *No bio:* ${results.noBio.length}\n` +
+        `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: menu,
+        },
+      );
     } else {
       await ctx.api.sendMessage(
         userId,
-        '📋 *Ringkasan Hasil*\n\n' +
-        `✅ Berhasil: ${results.success.length}\n` +
-        `❌ Gagal: ${results.failed.length}\n` +
-        `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
-        `📊 Diproses: ${numbersToProcess.length}\n` +
-        (remainingNumbers.length > 0 ? `📌 Sisa: ${remainingNumbers.length} nomor\n\n` : '') +
-        '📄 File terlampir di bawah:',
+        `✅ *Bio:* ${results.hasBio.length}\n` +
+        `⚪ *No bio:* ${results.noBio.length}\n` +
+        `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`,
         { parse_mode: 'Markdown' },
       );
 
-      const withBioTxt = generateWithBioTxt(results);
-      const withBioBuffer = globalThis.Buffer.from(withBioTxt, 'utf-8');
-      await ctx.api.sendDocument(
-        userId,
-        new InputFile(withBioBuffer, `with_bio_${Date.now()}.txt`),
-        { caption: '✅ Nomor dengan bio' },
-      );
+      if (results.hasBio.length > 0) {
+        const bioTxt = generateBioTxt(results);
+        const bioBuffer = globalThis.Buffer.from(bioTxt, 'utf-8');
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(bioBuffer, `bio_${Date.now()}.txt`),
+          {
+            caption: `✅ *Bio* (${results.hasBio.length})`,
+            parse_mode: 'Markdown',
+          },
+        );
+      }
 
-      const noBioTxt = generateNoBioTxt(results);
-      const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
-      await ctx.api.sendDocument(
-        userId,
-        new InputFile(noBioBuffer, `no_bio_${Date.now()}.txt`),
-        { caption: '❌ Nomor tanpa bio / failed' },
-      );
+      if (results.noBio.length > 0) {
+        const noBioTxt = generateNoBioTxt(results);
+        const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(noBioBuffer, `nobio_${Date.now()}.txt`),
+          {
+            caption: `⚪ *No bio* (${results.noBio.length})`,
+            parse_mode: 'Markdown',
+          },
+        );
+      }
+
+      if (results.unregistered.length > 0 || results.rateLimit.length > 0) {
+        const notRegisterTxt = generateNotRegisterTxt(results);
+        const notRegisterBuffer = globalThis.Buffer.from(
+          notRegisterTxt,
+          'utf-8',
+        );
+        const totalNotReg = results.unregistered.length + results.rateLimit.length;
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(notRegisterBuffer, `notregister_${Date.now()}.txt`),
+          {
+            caption: `❌ *Not register* (${totalNotReg})`,
+            parse_mode: 'Markdown',
+          },
+        );
+      }
 
       if (remainingNumbers.length > 0) {
         const remaining = remainingNumbers.length;
@@ -494,9 +483,10 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
 
     log.info(
       `[BG-${userId}] Check bio completed! ` +
-      `Success: ${results.success.length}, ` +
-      `Failed: ${results.failed.length}, ` +
-      `NoBio: ${results.noBio.length}`,
+      `HasBio: ${results.hasBio.length}, ` +
+      `NoBio: ${results.noBio.length}, ` +
+      `Unregistered: ${results.unregistered.length}, ` +
+      `RateLimit: ${results.rateLimit.length}`,
     );
   } catch (error) {
     log.error({ error }, '[BG] Error in background check bio');
@@ -579,23 +569,26 @@ export const handleBioPhoneInput = async (ctx) => {
 
       const result = await fetchBioForUser(socket, numbers[0]);
 
-      if (result.success) {
-        const message = '📋 *Hasil Check Bio*\n\n' +
-          `📱 Nomor: \`${result.phone}\`\n` +
-          `📝 Bio: ${result.bio}\n` +
-          `📅 Tanggal Set: ${result.setAt}`;
+      let message = '';
 
-        await ctx.reply(message, {
-          parse_mode: 'Markdown',
-          reply_markup: menu,
-        });
+      if (result.category === 'hasBio') {
+        message = `✅ *Bio:* \`${result.phone}\`\n${result.bio}`;
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
+      } else if (result.category === 'noBio') {
+        message = `⚪ *No bio:* \`${result.phone}\``;
+        log.warn(`[SINGLE] No bio for ${result.phone}`);
+      } else if (result.category === 'unregistered') {
+        message = `❌ *Not register:* \`${result.phone}\``;
+        log.warn(`[SINGLE] Unregistered ${result.phone}`);
       } else {
-        await ctx.reply(`❌ ${result.error}`, {
-          reply_markup: menu,
-        });
-        log.warn(`[SINGLE] Failed: ${result.error}`);
+        message = `⚠️ Error: ${result.error || 'Gagal'}`;
+        log.error(`[SINGLE] Error for ${result.phone}: ${result.error}`);
       }
+
+      await ctx.reply(message, {
+        parse_mode: 'Markdown',
+        reply_markup: menu,
+      });
     } else {
       if (numbers.length > 500) {
         await ctx.reply(

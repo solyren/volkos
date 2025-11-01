@@ -42,6 +42,84 @@ export const formatBioDate = (timestamp) => {
   return date.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
 };
 
+// -- checkIfRegistered --
+export const checkIfRegistered = async (socket, phoneNumber) => {
+  try {
+    let jid = phoneNumber;
+    if (!jid.includes('@')) {
+      const cleaned = jid.replace(/\D/g, '');
+      jid = `${cleaned}@s.whatsapp.net`;
+    }
+
+    log.info(`[REGISTER] Checking registration for ${phoneNumber}`);
+    const [result] = await socket.onWhatsApp(jid);
+
+    if (result && result.exists) {
+      log.info(`[REGISTER] ${phoneNumber} is registered`);
+      return true;
+    }
+
+    log.info(`[REGISTER] ${phoneNumber} is NOT registered`);
+    return false;
+  } catch (error) {
+    log.error({ error }, `Error checking registration for ${phoneNumber}`);
+    return null;
+  }
+};
+
+// -- detectBioCategory --
+export const detectBioCategory = (statusResponse, isRegistered, phoneNumber) => {
+  try {
+    if (isRegistered === false) {
+      log.info(`[DETECT] ${phoneNumber}: Not registered on WhatsApp`);
+      return {
+        category: 'unregistered',
+        status: 'Tidak Terdaftar',
+        detail: 'Nomor tidak terdaftar di WhatsApp',
+      };
+    }
+
+    if (!statusResponse || statusResponse.length === 0) {
+      log.info(`[DETECT] ${phoneNumber}: Registered but no bio data`);
+      return {
+        category: 'noBio',
+        status: 'Tidak Ada Bio',
+        detail: 'Akun terdaftar tapi tidak ada bio',
+      };
+    }
+
+    const bioData = statusResponse[0];
+    const bioText = bioData?.status?.status;
+    const bioSetAt = bioData?.status?.setAt;
+
+    if (!bioText || bioText.trim() === '') {
+      log.info(`[DETECT] ${phoneNumber}: Registered but bio is empty`);
+      return {
+        category: 'noBio',
+        status: 'Tidak Ada Bio',
+        detail: 'Akun terdaftar tapi tidak ada bio',
+        setAt: formatBioDate(bioSetAt),
+      };
+    }
+
+    log.info(`[DETECT] ${phoneNumber}: Has bio text`);
+    return {
+      category: 'hasBio',
+      status: 'Ada Bio',
+      detail: 'Akun terdaftar dan punya bio',
+      bioText,
+      setAt: formatBioDate(bioSetAt),
+    };
+  } catch (error) {
+    log.error({ error }, `Error detecting bio category for ${phoneNumber}`);
+    return {
+      category: 'error',
+      status: 'Error',
+      detail: error?.message || 'Gagal deteksi status',
+    };
+  }
+};
+
 // -- fetchBioForUser --
 export const fetchBioForUser = async (socket, phoneNumber, useCache = true, userId = null) => {
   try {
@@ -62,7 +140,28 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
       jid = `${cleaned}@s.whatsapp.net`;
     }
 
-    log.info(`[DEBUG BIO] Fetching status for JID: ${jid}`);
+    log.info(`[FETCH] Starting bio fetch for ${phoneNumber}`);
+
+    let isRegistered = null;
+    try {
+      isRegistered = await checkIfRegistered(socket, phoneNumber);
+    } catch (regError) {
+      log.warn({ error: regError }, `Failed to check registration for ${phoneNumber}`);
+    }
+
+    if (isRegistered === false) {
+      log.info(`[FETCH] ${phoneNumber} is not registered, returning unregistered`);
+      const result = {
+        phone: phoneNumber,
+        success: false,
+        category: 'unregistered',
+        error: 'Nomor tidak terdaftar',
+      };
+      setCachedBio(phoneNumber, result, 300);
+      return result;
+    }
+
+    log.info(`[FETCH] Fetching status for JID: ${jid}`);
 
     let statusResponse;
     if (userId) {
@@ -73,39 +172,74 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
     } else {
       statusResponse = await socket.fetchStatus(jid);
     }
-    log.info(`[DEBUG BIO] Status response: ${JSON.stringify(statusResponse)}`);
 
-    if (!statusResponse || statusResponse.length === 0) {
-      const errorResult = { error: 'User gak ketemu atau bio gak tersedia' };
-      setCachedBio(phoneNumber, errorResult, 300);
-      return errorResult;
+    log.info(`[FETCH] Status response for ${phoneNumber}: ${JSON.stringify(statusResponse)}`);
+
+    const categoryInfo = detectBioCategory(statusResponse, isRegistered, phoneNumber);
+
+    if (categoryInfo.category === 'hasBio') {
+      const result = {
+        phone: phoneNumber,
+        bio: categoryInfo.bioText,
+        setAt: categoryInfo.setAt,
+        success: true,
+        category: 'hasBio',
+      };
+      setCachedBio(phoneNumber, result, 3600);
+      return result;
     }
 
-    const bioData = statusResponse[0];
-    const bioText = bioData?.status?.status;
-    const bioSetAt = bioData?.status?.setAt;
-
-    if (!bioText || bioText.trim() === '') {
-      const noBioResult = { error: 'User gak punya bio' };
-      setCachedBio(phoneNumber, noBioResult, 600);
-      return noBioResult;
+    if (categoryInfo.category === 'noBio') {
+      const result = {
+        phone: phoneNumber,
+        success: false,
+        category: 'noBio',
+        error: 'User gak punya bio',
+      };
+      setCachedBio(phoneNumber, result, 600);
+      return result;
     }
 
-    const result = {
+    if (categoryInfo.category === 'unregistered') {
+      const result = {
+        phone: phoneNumber,
+        success: false,
+        category: 'unregistered',
+        error: 'Nomor tidak terdaftar',
+      };
+      setCachedBio(phoneNumber, result, 300);
+      return result;
+    }
+
+    const errorResult = {
       phone: phoneNumber,
-      bio: bioText,
-      setAt: formatBioDate(bioSetAt),
-      success: true,
+      success: false,
+      category: 'error',
+      error: categoryInfo.detail,
     };
-
-    setCachedBio(phoneNumber, result, 3600);
-    return result;
+    return errorResult;
   } catch (error) {
     log.error({ error }, `Failed to fetch bio for ${phoneNumber}`);
-    const errorResult = { error: error?.message || 'Gagal ambil bio' };
+
+    let category = 'error';
+    let errorMsg = error?.message || 'Gagal ambil bio';
+
     if (error?.message?.includes('rate') || error?.message?.includes('429')) {
+      category = 'rateLimit';
+      errorMsg = 'Rate limit - coba lagi nanti';
+    }
+
+    const errorResult = {
+      phone: phoneNumber,
+      success: false,
+      category,
+      error: errorMsg,
+    };
+
+    if (category === 'rateLimit') {
       setCachedBio(phoneNumber, errorResult, 60);
     }
+
     return errorResult;
   }
 };

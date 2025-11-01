@@ -271,6 +271,9 @@ const generateBioTxt = (results) => {
 
   results.hasBio.forEach((r) => {
     lines.push(r.phone);
+    lines.push(`Bio: ${r.bio}`);
+    lines.push(`Set: ${r.setAt}`);
+    lines.push('');
   });
 
   return lines.join('\n');
@@ -572,7 +575,7 @@ export const handleBioPhoneInput = async (ctx) => {
       let message = '';
 
       if (result.category === 'hasBio') {
-        message = `✅ *Bio:* \`${result.phone}\`\n${result.bio}`;
+        message = `✅ *Bio:* \`${result.phone}\`\n${result.bio}\n_Set: ${result.setAt}_`;
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
       } else if (result.category === 'noBio') {
         message = `⚪ *No bio:* \`${result.phone}\``;

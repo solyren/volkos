@@ -82,8 +82,6 @@ export const createBot = () => {
 
   bot.command('start', handleStartCommand);
 
-
-
   bot.on('message:document', async (ctx) => {
     try {
       if (ctx.session?.waitingForBioPhone) {

@@ -1,201 +1,99 @@
-# <p align="center">🤖 VOLKOS BOT</p>
+# VOLKOS BOT
 
-<div align="center">
-  <strong>Telegram x WhatsApp Bridge</strong>
-  <br/>
-  Hubungkan akun WhatsApp melalui Telegram dengan fitur lengkap dan mudah.
-</div>
+Multi-user WhatsApp bot yang terhubung dengan Telegram menggunakan Baileys dan grammY. Mendukung persistent sessions, role-based access control, dan relay pesan real-time.
 
-<br/>
+## Requirements
 
-> [!NOTE]
-> Multi-user WhatsApp bot dengan Baileys + grammY. Persistent sessions, role-based access, dan relay pesan real-time.
+- Node.js 18+
+- npm
+- Telegram Bot Token dari [@BotFather](https://t.me/botfather)
+- Upstash Redis
 
-## 📋 Daftar Isi
-
-- [Instalasi](#-instalasi)
-- [Konfigurasi](#-konfigurasi)
-- [Panduan Pengguna](#-panduan-pengguna)
-  - [Akses Bot (PM Only)](#-akses-bot)
-  - [Verifikasi Grup](#verifikasi-grup)
-- [Admin Panel](#-admin-panel)
-- [Fitur Lengkap](#-fitur-lengkap)
-- [Pengembangan](#-pengembangan)
-
-## 💻 Instalasi
-
-### Persyaratan
-
-- **Node.js 18+** - [nodejs.org](https://nodejs.org/)
-- **npm** - Included dengan Node.js
-- **Telegram Bot Token** - [@BotFather](https://t.me/botfather)
-- **Upstash Redis** - [upstash.com](https://upstash.com/)
-
-### Setup
+## Installation
 
 ```bash
 git clone https://github.com/solyren/volkos.git
 cd volkos
 npm install
 cp .env.example .env
-# Edit .env dengan credentials kamu
-npm start
 ```
 
-## ⚙️ Konfigurasi
-
-Edit `.env`:
+Edit `.env` dengan credentials:
 
 ```env
 TELEGRAM_TOKEN=your_token
-TELEGRAM_ADMIN_ID=your_id
-UPSTASH_REDIS_REST_URL=your_url
-UPSTASH_REDIS_REST_TOKEN=your_token
-EMAIL_ENCRYPTION_KEY=your_32byte_hex_key (generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+TELEGRAM_ADMIN_ID=your_admin_id
+UPSTASH_REDIS_REST_URL=your_redis_url
+UPSTASH_REDIS_REST_TOKEN=your_redis_token
+EMAIL_ENCRYPTION_KEY=your_32byte_hex_key
 DEBUG=false
 DEFAULT_TRIAL_DAYS=1
 ```
 
-**Cari Telegram User ID**: Kirim ke [@userinfobot](https://t.me/userinfobot)
-
-## 📱 Panduan Pengguna
-
-### ⚠️ Akses Bot
-
-> **Bot hanya bisa diakses via Private Message (PM)**
-> 
-> Bot akan **mengabaikan semua pesan di group/channel**. Harus chat langsung ke bot:
-> - ✅ Chat pribadi dengan bot → **Berfungsi normal**
-> - ❌ Pesan di group → **Diabaikan**
-> 
-> Jika bot ada di group kamu, dia tidak akan merespons. Gunakan bot melalui DM (Direct Message) saja!
-
-### Verifikasi Grup
-
-Pengguna baru harus join grup berikut untuk akses bot:
-- **urGank** - Group komunitas
-- **urGank Chat** - Group diskusi
-
-**Alur Verifikasi:**
-1. Kirim `/start` ke bot
-2. Klik tombol grup untuk join
-3. Klik "✅ Sudah Join" untuk verifikasi otomatis
-4. Akses bot diberikan ✅
-
-> **Catatan Owner:** Pemilik bot (admin) otomatis bypass verifikasi grup - tidak perlu join.
-
-### Menu User
-
-Kirim `/start` untuk akses menu:
-
-- 📱 **Pair WhatsApp** → Input nomor (format: 628xxx) → Scan QR code
-- 📊 **Status** → Cek koneksi WA kamu
-- 🔍 **Cek Bio** → Input nomor atau upload `.txt` file (max 500 nomor)
-- 📧 **Setup Email** → Gmail + App Password untuk fix nomor
-- 🔧 **Fix Nomor** → Kirim email fix nomor ke WhatsApp support
-- ❌ **Disconnect** → Putus pairing WhatsApp
-- ❓ **Help** → Bantuan
-
-### Alur Dasar
-
-**Pair WhatsApp:**
-1. Klik **📱 Pair WhatsApp**
-2. Masukkan nomor: `628812345678`
-3. Scan QR code dengan WhatsApp linked devices
-4. Tunggu konfirmasi ✅
-
-**Check Bio:**
-1. Klik **🔍 Cek Bio**
-2. Kirim nomor per baris atau upload file `.txt`
-3. Bot return file Excel hasil (cooldown: 20 detik)
-
-**Fix Nomor:**
-1. Owner setup template: **📧 Menu Email** → **📝 Set Template**
-   - Gunakan placeholder: `{nama}` dan `{nomor}`
-2. User setup email: **📧 Setup Email**
-3. User klik **🔧 Fix Nomor** → Input nomor
-4. Bot kirim email ke `support@support.whatsapp.com` (cooldown: 120 detik)
-
-## 👑 Admin Panel
-
-**User Management:**
-- **👥 Lihat User** → Daftar user + detail
-- **➕ Tambah User** → Format: `123456789 30` (user ID + hari akses)
-- **🔄 Perpanjang User** → Format: `123456789 7` (tambah 7 hari)
-- **🗑️ Hapus User** → Format: `123456789` (hapus user)
-
-**Pengaturan:**
-- **⚙️ Atur Hari Trial** → Set durasi default trial user baru
-- **📢 Broadcast** → Kirim pesan ke semua user
-- **📊 Status Sistem** → Statistik user, koneksi, etc
-
-**Email Management:**
-- **📧 Menu Email** → Setup/view/delete email template
-- Template wajib punya placeholder `{nama}` dan `{nomor}`
-
-**File Conversion (Owner Only):**
-- **📄 Convert XLSX** → Upload file Excel untuk extract nomor
-  - Ambil hanya kolom yang berisi nomor (>= 5 digit)
-  - Konversi ke file `.txt` (1 nomor per baris)
-  - Otomatis deduplicate nomor ganda
-  - Download file `.txt` result (cooldown: 20 detik)
-
-### Peran User
-
-| Peran | Durasi | Admin | Pair WA |
-|-------|--------|-------|---------|
-| Owner 👑 | Permanen | ✅ | ✅ |
-| Pengguna 👤 | Permanen | ❌ | ✅ |
-| Trial ⏳ | Durasi Custom | ❌ | ✅ |
-
-## ✨ Fitur Lengkap
-
-**Core:**
-- Multi-user dengan socket pooling per-user
-- Persistent WhatsApp sessions (auto-reconnect)
-- Relay pesan real-time Telegram ↔ WhatsApp
-- Custom pairing code: `VOLKSBOT`
-
-**Advanced:**
-- Check bio hingga 500 nomor + adaptive rate limiting (3-10/sec)
-- Email otomatis untuk fix nomor ke support WA
-- Cooldown system (20s check bio, 120s fix nomor)
-- Template email customizable dengan placeholder
-- Broadcast ke semua user
-- User management (add, extend, delete)
-- Trial expiry otomatis
-- Convert XLSX file → extract nomor → TXT file (owner only)
-
-**Architecture:**
-- Redis-based state persistence
-- Role-based access control (RBAC)
-- Per-user socket isolation
-- Secure credential encryption
-
-## 👨‍💻 Pengembangan
-
-### Scripts
+Jalankan:
 
 ```bash
-npm start           # Production
-npm run dev         # Development + auto-reload
-npm run lint        # ESLint auto-fix
-npm run lint:check  # Check only
+npm start
 ```
 
-### Commit Convention
+## Configuration
 
-```
-feat: add new feature
-fix: fix bug
-docs: documentation
-refactor: code cleanup
+Dapatkan Telegram User ID dengan mengirim pesan ke [@userinfobot](https://t.me/userinfobot).
+
+Generate email encryption key:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Sebelum commit: `npm run lint` + manual test
+## Usage
+
+Bot hanya merespons private messages. Akses melalui `/start` command.
+
+### User Features
+
+- Pair WhatsApp dengan nomor
+- Cek status koneksi
+- Check bio dari nomor WhatsApp (hingga 500 nomor)
+- Setup email untuk fix nomor
+- Disconnect WhatsApp
+
+### Admin Features
+
+- Kelola user (tambah, perpanjang, hapus)
+- Set durasi trial default
+- Broadcast pesan ke semua user
+- Setup email template
+- Convert XLSX to TXT (extract nomor)
+
+## Features
+
+- Multi-user dengan per-user socket isolation
+- WhatsApp session persistence dengan auto-reconnect
+- Adaptive rate limiting untuk check bio (3-10/sec)
+- Email automation untuk fix nomor
+- File conversion (XLSX to TXT)
+- Role-based access control (Owner, User, Trial)
+- Redis-based state management
+- Cooldown system
+
+## Development
+
+```bash
+npm run dev     # Development dengan auto-reload
+npm run lint    # Run linter
+npm start       # Production
+```
+
+Commit convention:
+```
+feat: description
+fix: description
+docs: description
+refactor: description
+```
+
+Run linter sebelum commit: `npm run lint`
 
 ---
 
-<div align="center">
-  Made with ❤️ | Referensi: <a href="https://grammy.dev">grammY</a> • <a href="https://github.com/WhiskeySockets/Baileys">Baileys</a> • <a href="https://core.telegram.org/bots/api">Telegram API</a>
-</div>
+Made with Telegram Bot API, grammY, dan Baileys

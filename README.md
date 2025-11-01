@@ -133,6 +133,13 @@ Kirim `/start` untuk akses menu:
 - **📧 Menu Email** → Setup/view/delete email template
 - Template wajib punya placeholder `{nama}` dan `{nomor}`
 
+**File Conversion (Owner Only):**
+- **📄 Convert XLSX** → Upload file Excel untuk extract nomor
+  - Ambil hanya kolom yang berisi nomor (>= 5 digit)
+  - Konversi ke file `.txt` (1 nomor per baris)
+  - Otomatis deduplicate nomor ganda
+  - Download file `.txt` result (cooldown: 20 detik)
+
 ### Peran User
 
 | Peran | Durasi | Admin | Pair WA |
@@ -157,6 +164,7 @@ Kirim `/start` untuk akses menu:
 - Broadcast ke semua user
 - User management (add, extend, delete)
 - Trial expiry otomatis
+- Convert XLSX file → extract nomor → TXT file (owner only)
 
 **Architecture:**
 - Redis-based state persistence
@@ -175,62 +183,16 @@ npm run lint        # ESLint auto-fix
 npm run lint:check  # Check only
 ```
 
-### Coding Standards
-
-- **ESLint**: Wajib pass (0 errors)
-- **Function Markers**: `// -- functionName --` di SETIAP function (ATURAN MUTLAK)
-- **Comments**: Hanya boleh ada function marker, TIDAK boleh ada komentar lain
-- **Style**: const/let only, single quotes, semicolons, curly braces
-- **Logging**: Gunakan logger, bukan console.log
-- **File Names**: kebab-case.js
-
-### ATURAN MUTLAK DEVELOPMENT
-
-1. **SETIAP CODE berubah → Update AGENTS.md**
-   - Dokumentasikan perubahan struktur/logic di AGENTS.md
-   - Ini adalah peraturan mutlak yang tidak boleh dilanggar
-
-2. **Breaking Changes → Update README.md**
-   - Jika ada perubahan fitur user-facing
-   - Update dokumentasi pengguna
-
-3. **Function Markers (MANDATORY)**
-   ```javascript
-   // -- functionName --
-   export const functionName = async () => {
-     // No other comments allowed!
-   };
-   ```
-
-4. **ESLint Check**
-   ```bash
-   npm run lint  # HARUS 0 errors sebelum commit
-   ```
-
 ### Commit Convention
 
 ```
 feat: add new feature
 fix: fix bug
-docs: update AGENTS.md / README.md
+docs: documentation
 refactor: code cleanup
 ```
 
-**Sebelum commit**: `npm run lint` + manual test + review `git diff`
-
-### Best Practices
-
-- ✅ Update AGENTS.md setiap ada CODE changes (PERATURAN MUTLAK)
-- ✅ Update README.md untuk breaking changes
-- ✅ Add function markers (// -- name --) untuk SETIAP function
-- ✅ No hardcoded credentials
-- ✅ Validate user input
-- ❌ No comments selain function markers
-- ❌ No `// eslint-disable` comments
-- ❌ No console.log di production
-- ❌ No var, gunakan const/let
-
-**Lihat AGENTS.md untuk dokumentasi lengkap pengembangan.**
+Sebelum commit: `npm run lint` + manual test
 
 ---
 

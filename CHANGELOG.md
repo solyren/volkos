@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/solyren/volkos/compare/volkos-v0.2.0...volkos-v0.3.0) (2025-11-01)
+
+
+### Features
+
+* **convert:** add convert xlsx to txt ([33411c0](https://github.com/solyren/volkos/commit/33411c0231d4af92813dcf5b25ba94024738ab05))
+* **convert:** add convert xlsx to txt ([ba9a742](https://github.com/solyren/volkos/commit/ba9a742f537d49db4c96f7dbd2629ba47a768cff))
+
+
+### Bug Fixes
+
+* **pairing:** fix pairing yang hanya bisa nomor indonesia ([8befccc](https://github.com/solyren/volkos/commit/8befcccdf09ab3dcee8a8c349970a14b9d6bf502))
+* **start:** fix /start yang looping ([1d03e30](https://github.com/solyren/volkos/commit/1d03e3084ffeffaa95dbe1af8a5319f9528ac762))
+
+
+### Docs
+
+* **readme:** update doc agar lebih profesional ([dd6fa49](https://github.com/solyren/volkos/commit/dd6fa4937103a8526efc0131c70249f501be0ca6))
+
 ## [0.2.0](https://github.com/solyren/volkos/compare/volkos-v0.1.0...volkos-v0.2.0) (2025-10-28)
 
 

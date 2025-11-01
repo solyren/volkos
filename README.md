@@ -34,7 +34,7 @@
 ### Setup
 
 ```bash
-git clone https://github.com/yourusername/volkos.git
+git clone https://github.com/solyren/volkos.git
 cd volkos
 npm install
 cp .env.example .env

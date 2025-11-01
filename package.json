@@ -9,6 +9,7 @@
     "build": "tsc",
     "lint": "eslint src --fix",
     "start": "node src/index.js",
+    "launch": "node launcher.js",
     "prepare": "npm run lint"
   },
   "keywords": [

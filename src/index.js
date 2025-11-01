@@ -38,4 +38,24 @@ const main = async () => {
   }
 };
 
+// -- Handle uncaught exceptions --
+process.on('unhandledRejection', (reason, promise) => {
+  log.error({ reason, promise }, 'Unhandled Promise Rejection');
+});
+
+process.on('uncaughtException', (error) => {
+  log.error({ error }, 'Uncaught Exception');
+  process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+  log.info('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  log.info('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
 main();

@@ -28,7 +28,9 @@ export const createUser = async (userId, role = 'trial', expiryDays = null) => {
     const jsonString = JSON.stringify(userData);
     await redis.set(`user:${userId}`, jsonString);
     const expMsg = expiryTime ? `expiry: ${new Date(expiryTime).toISOString()}` : 'permanent';
-    log.info(`User created: ${userId} with role ${role}, ${expMsg}`);
+    log.info(
+      `[CREATE USER] ${userId} role=${role} expiryDays=${expiryDays} ${expMsg}`,
+    );
     return userData;
   } catch (error) {
     log.error({ error }, `Failed to create user ${userId}`);

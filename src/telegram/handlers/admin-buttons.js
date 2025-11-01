@@ -207,10 +207,11 @@ export const handleAdminAddUserStart = async (ctx) => {
 export const handleSetTrialDaysStart = async (ctx) => {
   try {
     const currentDays = await getTrialDays();
-    const message = '⚙️ *Atur Durasi Trial*\n\n' +
-      `Saat ini: *${currentDays} hari*\n\n` +
-      'Kirim durasi baru (dalam hari):\n' +
-      'Contoh: `7` untuk 7 hari';
+    log.info(`[TRIAL] Current trial days: ${currentDays}`);
+    const message = '⚙️ *Set Trial Duration*\n\n' +
+      `✅ Current: *${currentDays} days*\n\n` +
+      'Send new duration (days):\n' +
+      'Example: `7` for 7 days';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',

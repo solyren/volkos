@@ -10,16 +10,24 @@ export const getTrialDays = async () => {
     const redis = getRedis();
     const stored = await redis.get('system:trialDays');
 
+    log.info(`[TRIAL] Redis stored value: "${stored}", type: ${typeof stored}`);
+
     if (stored) {
       const days = Number(stored);
-      log.info(`[TRIAL DAYS] Using stored value: ${days}`);
+      if (isNaN(days) || days < 1) {
+        log.warn(
+          `[TRIAL] Invalid stored value: ${stored}, using default: ${config.system.defaultTrialDays}`,
+        );
+        return config.system.defaultTrialDays;
+      }
+      log.info(`[TRIAL] Using Redis value: ${days} days`);
       return days;
     }
 
-    log.info(`[TRIAL DAYS] Using config default: ${config.system.defaultTrialDays}`);
+    log.info(`[TRIAL] No Redis value, using config default: ${config.system.defaultTrialDays} days`);
     return config.system.defaultTrialDays;
   } catch (error) {
-    log.error({ error }, 'Failed to get trial days, using default');
+    log.error({ error }, '[TRIAL] Failed to get trial days, using default');
     return config.system.defaultTrialDays;
   }
 };

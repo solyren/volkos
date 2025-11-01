@@ -246,9 +246,16 @@ export const createBot = () => {
         await setTrialDays(days);
         ctx.session.settingTrialDays = false;
 
-        await ctx.reply(`✅ Trial duration updated to ${days} day(s)`, {
-          reply_markup: ownerMainMenu(),
-        });
+        log.info(`[TRIAL] Updated trial days to: ${days}`);
+        await ctx.reply(
+          `✅ *Trial Duration Updated*\n\n` +
+          `New duration: *${days} days*\n` +
+          'New users will get this duration.',
+          {
+            parse_mode: 'Markdown',
+            reply_markup: ownerMainMenu(),
+          },
+        );
         return;
       }
 

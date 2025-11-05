@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/solyren/volkos/compare/volkos-v0.4.0...volkos-v0.5.0) (2025-11-05)
+
+
+### Features
+
+* **bisnis:** add bisnis checker untuk whatsapp ([722fe81](https://github.com/solyren/volkos/commit/722fe81c0f2fa6f1a5a52b18b8d3e0cb01afe02e))
+
 ## [0.4.0](https://github.com/solyren/volkos/compare/volkos-v0.3.0...volkos-v0.4.0) (2025-11-05)
 
 

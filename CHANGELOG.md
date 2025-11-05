@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/solyren/volkos/compare/volkos-v0.3.0...volkos-v0.4.0) (2025-11-05)
+
+
+### Features
+
+* **check-bio:** add 3 kategori, bio, no bio, not regis ([3251059](https://github.com/solyren/volkos/commit/32510598453b0dd0e7e1c77e489c7fda8b723d65))
+* **launcher:** add launcher.js untuk start bot di panel ([c1b9dad](https://github.com/solyren/volkos/commit/c1b9dad982f5bb9724a0f8e1e2ea2270b2ec16e4))
+
 ## [0.3.0](https://github.com/solyren/volkos/compare/volkos-v0.2.0...volkos-v0.3.0) (2025-11-01)
 
 

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  release:
+    types: [published]
 
 jobs:
   release-please:
@@ -15,3 +17,15 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  notify-telegram:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send changelog to Telegram
+        run: |
+          MESSAGE="🚀 *New Release:* [${{ github.event.release.tag_name }}](${{ github.event.release.html_url }})%0A%0A📝 *Changelog:*%0A${{ github.event.release.body }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode=Markdown \
+            -d text="$MESSAGE"

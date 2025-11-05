@@ -178,13 +178,21 @@ const processBulkBioAdvanced = async (
             phone: result.phone,
             bio: result.bio,
             setAt: result.setAt,
+            accountType: result.accountType,
+            isBusiness: result.isBusiness,
+            isVerified: result.isVerified,
           });
           rateLimiter.recordSuccess();
           return result;
         }
 
         if (result.category === 'noBio') {
-          results.noBio.push(number);
+          results.noBio.push({
+            phone: number,
+            accountType: result.accountType,
+            isBusiness: result.isBusiness,
+            isVerified: result.isVerified,
+          });
           rateLimiter.recordSuccess();
           return result;
         }
@@ -270,7 +278,13 @@ const generateBioTxt = (results) => {
   const lines = [];
 
   results.hasBio.forEach((r) => {
-    lines.push(r.phone);
+    let badge = '';
+    if (r.isVerified) {
+      badge = ' ✅ [Official Business]';
+    } else if (r.isBusiness) {
+      badge = ' 💼 [WhatsApp Business]';
+    }
+    lines.push(`${r.phone}${badge}`);
     lines.push(`Bio: ${r.bio}`);
     lines.push(`Set: ${r.setAt}`);
     lines.push('');
@@ -283,8 +297,17 @@ const generateBioTxt = (results) => {
 const generateNoBioTxt = (results) => {
   const lines = [];
 
-  results.noBio.forEach((phone) => {
-    lines.push(phone);
+  results.noBio.forEach((r) => {
+    const phone = typeof r === 'string' ? r : r.phone;
+    let badge = '';
+    if (typeof r === 'object') {
+      if (r.isVerified) {
+        badge = ' ✅ [Official Business]';
+      } else if (r.isBusiness) {
+        badge = ' 💼 [WhatsApp Business]';
+      }
+    }
+    lines.push(`${phone}${badge}`);
   });
 
   return lines.join('\n');
@@ -402,33 +425,38 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
     const user = await getUser(userId);
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
 
+    const bioBizCount = results.hasBio.filter(r => r.isBusiness).length;
+    const noBioBizCount = results.noBio.filter(r => r.isBusiness).length;
+    const totalBizCount = bioBizCount + noBioBizCount;
+
+    let summaryMsg = `✅ *Bio:* ${results.hasBio.length}\n` +
+      `⚪ *No bio:* ${results.noBio.length}\n` +
+      `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`;
+
+    if (totalBizCount > 0) {
+      summaryMsg += `\n\n💼 *WA Business ditemukan:* ${totalBizCount}`;
+    }
+
     if (numbersToProcess.length <= 10 && !isFromFile && remainingNumbers.length === 0) {
-      await ctx.api.sendMessage(userId,
-        `✅ *Bio:* ${results.hasBio.length}\n` +
-        `⚪ *No bio:* ${results.noBio.length}\n` +
-        `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: menu,
-        },
-      );
+      await ctx.api.sendMessage(userId, summaryMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: menu,
+      });
     } else {
-      await ctx.api.sendMessage(
-        userId,
-        `✅ *Bio:* ${results.hasBio.length}\n` +
-        `⚪ *No bio:* ${results.noBio.length}\n` +
-        `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`,
-        { parse_mode: 'Markdown' },
-      );
+      await ctx.api.sendMessage(userId, summaryMsg, { parse_mode: 'Markdown' });
 
       if (results.hasBio.length > 0) {
         const bioTxt = generateBioTxt(results);
         const bioBuffer = globalThis.Buffer.from(bioTxt, 'utf-8');
+        let bioCaption = `✅ *Bio* (${results.hasBio.length})`;
+        if (bioBizCount > 0) {
+          bioCaption += `\n💼 ${bioBizCount} akun bisnis`;
+        }
         await ctx.api.sendDocument(
           userId,
           new InputFile(bioBuffer, `bio_${Date.now()}.txt`),
           {
-            caption: `✅ *Bio* (${results.hasBio.length})`,
+            caption: bioCaption,
             parse_mode: 'Markdown',
           },
         );
@@ -437,11 +465,15 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
       if (results.noBio.length > 0) {
         const noBioTxt = generateNoBioTxt(results);
         const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
+        let noBioCaption = `⚪ *No bio* (${results.noBio.length})`;
+        if (noBioBizCount > 0) {
+          noBioCaption += `\n💼 ${noBioBizCount} akun bisnis`;
+        }
         await ctx.api.sendDocument(
           userId,
           new InputFile(noBioBuffer, `nobio_${Date.now()}.txt`),
           {
-            caption: `⚪ *No bio* (${results.noBio.length})`,
+            caption: noBioCaption,
             parse_mode: 'Markdown',
           },
         );
@@ -573,12 +605,19 @@ export const handleBioPhoneInput = async (ctx) => {
       const result = await fetchBioForUser(socket, numbers[0]);
 
       let message = '';
+      let badge = '';
+
+      if (result.isVerified) {
+        badge = ' ✅ [Official Business]';
+      } else if (result.isBusiness) {
+        badge = ' 💼 [WhatsApp Business]';
+      }
 
       if (result.category === 'hasBio') {
-        message = `✅ *Bio:* \`${result.phone}\`\n${result.bio}\n_Set: ${result.setAt}_`;
+        message = `✅ *Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
       } else if (result.category === 'noBio') {
-        message = `⚪ *No bio:* \`${result.phone}\``;
+        message = `⚪ *No bio:* \`${result.phone}\`${badge}`;
         log.warn(`[SINGLE] No bio for ${result.phone}`);
       } else if (result.category === 'unregistered') {
         message = `❌ *Not register:* \`${result.phone}\``;

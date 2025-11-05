@@ -42,6 +42,52 @@ export const formatBioDate = (timestamp) => {
   return date.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
 };
 
+// -- detectBusinessType --
+export const detectBusinessType = async (socket, jid, bioText = '') => {
+  try {
+    let accountType = 'Akun Pribadi';
+    let isBusiness = false;
+    let isVerified = null;
+
+    const profile = await socket.getBusinessProfile(jid).catch(() => null);
+
+    if (profile?.verifiedName) {
+      accountType = 'Official Business';
+      isBusiness = true;
+      isVerified = profile.verifiedName;
+      log.info(`[BUSINESS] ${jid}: Official Business (${isVerified})`);
+      return { accountType, isBusiness, isVerified };
+    }
+
+    if (profile?.businessName || profile?.wid) {
+      accountType = 'WhatsApp Business';
+      isBusiness = true;
+      log.info(`[BUSINESS] ${jid}: WhatsApp Business`);
+      return { accountType, isBusiness, isVerified };
+    }
+
+    const businessBioPatterns = [
+      'Hello. I\'m using WhatsApp Business.',
+      'Hello. I?m using WhatsApp Business.',
+      'Hola. Estoy usando WhatsApp Business.',
+      'WhatsApp Business',
+    ];
+
+    if (businessBioPatterns.some(p => bioText.includes(p))) {
+      accountType = 'WhatsApp Business';
+      isBusiness = true;
+      log.info(`[BUSINESS] ${jid}: WhatsApp Business (detected from bio)`);
+      return { accountType, isBusiness, isVerified };
+    }
+
+    log.info(`[BUSINESS] ${jid}: Personal account`);
+    return { accountType, isBusiness, isVerified };
+  } catch (error) {
+    log.error({ error }, `Error detecting business type for ${jid}`);
+    return { accountType: 'Akun Pribadi', isBusiness: false, isVerified: null };
+  }
+};
+
 // -- checkIfRegistered --
 export const checkIfRegistered = async (socket, phoneNumber) => {
   try {
@@ -56,11 +102,17 @@ export const checkIfRegistered = async (socket, phoneNumber) => {
 
     if (result && result.exists) {
       log.info(`[REGISTER] ${phoneNumber} is registered`);
-      return true;
+
+      const businessInfo = await detectBusinessType(socket, jid);
+
+      return {
+        exists: true,
+        ...businessInfo,
+      };
     }
 
     log.info(`[REGISTER] ${phoneNumber} is NOT registered`);
-    return false;
+    return { exists: false };
   } catch (error) {
     log.error({ error }, `Error checking registration for ${phoneNumber}`);
     return null;
@@ -142,14 +194,14 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
 
     log.info(`[FETCH] Starting bio fetch for ${phoneNumber}`);
 
-    let isRegistered = null;
+    let registrationInfo = null;
     try {
-      isRegistered = await checkIfRegistered(socket, phoneNumber);
+      registrationInfo = await checkIfRegistered(socket, phoneNumber);
     } catch (regError) {
       log.warn({ error: regError }, `Failed to check registration for ${phoneNumber}`);
     }
 
-    if (isRegistered === false) {
+    if (registrationInfo && !registrationInfo.exists) {
       log.info(`[FETCH] ${phoneNumber} is not registered, returning unregistered`);
       const result = {
         phone: phoneNumber,
@@ -175,7 +227,25 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
 
     log.info(`[FETCH] Status response for ${phoneNumber}: ${JSON.stringify(statusResponse)}`);
 
-    const categoryInfo = detectBioCategory(statusResponse, isRegistered, phoneNumber);
+    const bioText = statusResponse?.[0]?.status?.status || '';
+    const categoryInfo = detectBioCategory(
+      statusResponse,
+      registrationInfo?.exists !== false,
+      phoneNumber,
+    );
+
+    let businessInfo = registrationInfo || {
+      accountType: 'Akun Pribadi',
+      isBusiness: false,
+      isVerified: null,
+    };
+
+    if (bioText && !businessInfo.isBusiness) {
+      const bioBusinessInfo = await detectBusinessType(socket, jid, bioText);
+      if (bioBusinessInfo.isBusiness) {
+        businessInfo = bioBusinessInfo;
+      }
+    }
 
     if (categoryInfo.category === 'hasBio') {
       const result = {
@@ -184,6 +254,9 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
         setAt: categoryInfo.setAt,
         success: true,
         category: 'hasBio',
+        accountType: businessInfo.accountType,
+        isBusiness: businessInfo.isBusiness,
+        isVerified: businessInfo.isVerified,
       };
       setCachedBio(phoneNumber, result, 3600);
       return result;
@@ -195,6 +268,9 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
         success: false,
         category: 'noBio',
         error: 'User gak punya bio',
+        accountType: businessInfo.accountType,
+        isBusiness: businessInfo.isBusiness,
+        isVerified: businessInfo.isVerified,
       };
       setCachedBio(phoneNumber, result, 600);
       return result;

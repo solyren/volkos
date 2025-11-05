@@ -246,7 +246,7 @@ export const createBot = () => {
 
         log.info(`[TRIAL] Updated trial days to: ${days}`);
         await ctx.reply(
-          `✅ *Trial Duration Updated*\n\n` +
+          '✅ *Trial Duration Updated*\n\n' +
           `New duration: *${days} days*\n` +
           'New users will get this duration.',
           {

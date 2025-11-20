@@ -2,7 +2,7 @@ import PQueue from 'p-queue';
 import { InputFile } from 'grammy';
 import { createLogger } from '../../logger.js';
 import { getUserSocket } from '../../whatsapp/socket-pool.js';
-import { fetchBioForUser } from '../../whatsapp/utils.js';
+import { fetchBioForUserOptimized } from '../../whatsapp/utils-optimized.js';
 import { formatErrorMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
 import { checkCooldown } from '../../db/cooldown.js';
@@ -13,12 +13,12 @@ const log = createLogger('TelegramCheckBio');
 // -- AdaptiveRateLimiter --
 class AdaptiveRateLimiter {
   constructor() {
-    this.currentRate = 10;
-    this.minRate = 3;
-    this.maxRate = 10;
+    this.currentRate = 20;
+    this.minRate = 5;
+    this.maxRate = 30;
     this.errorCount = 0;
     this.successCount = 0;
-    this.baseDelay = 100;
+    this.baseDelay = 50;
     this.backoffMultiplier = 1;
   }
 
@@ -93,12 +93,25 @@ const readFileContent = async (ctx, fileId) => {
     const fileUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
 
     const response = await globalThis.fetch(fileUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
     const content = await response.text();
+
+    if (!content || content.trim().length === 0) {
+      throw new Error('File kosong');
+    }
 
     return content;
   } catch (error) {
-    log.error({ error }, 'Failed to read file content');
-    throw new Error('Failed to read file');
+    log.error({
+      error: error.message,
+      stack: error.stack,
+      fileId,
+    }, 'Failed to read file content');
+    throw new Error(`Gagal baca file: ${error.message}`);
   }
 };
 
@@ -116,6 +129,8 @@ const processBulkBioAdvanced = async (
     noBio: [],
     unregistered: [],
     rateLimit: [],
+    hasWebsite: [],
+    hasEmail: [],
   };
 
   const rateLimiter = new AdaptiveRateLimiter();
@@ -129,9 +144,9 @@ const processBulkBioAdvanced = async (
   if (!noProgress) {
     progressMsg = await ctx.reply(
       `🚀 Processing ${total} numbers...\n` +
-      '⏳ Adaptive mode (10/sec start)...\n' +
+      '⏳ Optimized mode (20/sec start)...\n' +
       `📊 0/${total} (0%)\n` +
-      '⚡ Smart rate limiting active',
+      '⚡ Parallel API + Smart rate limiting',
     );
   }
 
@@ -171,7 +186,7 @@ const processBulkBioAdvanced = async (
   const fetchBioAdaptive = async (number, userIdContext) => {
     return cache.getOrFetch(number, async () => {
       try {
-        const result = await fetchBioForUser(socket, number, true, userIdContext);
+        const result = await fetchBioForUserOptimized(socket, number, true, userIdContext);
 
         if (result.category === 'hasBio') {
           results.hasBio.push({
@@ -180,8 +195,24 @@ const processBulkBioAdvanced = async (
             setAt: result.setAt,
             accountType: result.accountType,
             isBusiness: result.isBusiness,
-            isVerified: result.isVerified,
           });
+
+          if (result.isBusiness && result.websites && result.websites.length > 0) {
+            results.hasWebsite.push({
+              phone: result.phone,
+              websites: result.websites,
+              email: result.email,
+            });
+          }
+
+          if (result.isBusiness && result.email) {
+            results.hasEmail.push({
+              phone: result.phone,
+              email: result.email,
+              websites: result.websites || [],
+            });
+          }
+
           rateLimiter.recordSuccess();
           return result;
         }
@@ -191,8 +222,24 @@ const processBulkBioAdvanced = async (
             phone: number,
             accountType: result.accountType,
             isBusiness: result.isBusiness,
-            isVerified: result.isVerified,
           });
+
+          if (result.isBusiness && result.websites && result.websites.length > 0) {
+            results.hasWebsite.push({
+              phone: result.phone,
+              websites: result.websites,
+              email: result.email,
+            });
+          }
+
+          if (result.isBusiness && result.email) {
+            results.hasEmail.push({
+              phone: result.phone,
+              email: result.email,
+              websites: result.websites || [],
+            });
+          }
+
           rateLimiter.recordSuccess();
           return result;
         }
@@ -222,9 +269,9 @@ const processBulkBioAdvanced = async (
 
   const processBatch = async (batch, userIdContext) => {
     const queue = new PQueue({
-      concurrency: 1,
-      interval: 200,
-      intervalCap: 1,
+      concurrency: 3,
+      interval: 100,
+      intervalCap: 3,
     });
 
     for (const number of batch) {
@@ -246,13 +293,13 @@ const processBulkBioAdvanced = async (
     await queue.onIdle();
   };
 
-  const batchSize = 20;
+  const batchSize = 50;
   const batches = [];
   for (let i = 0; i < total; i += batchSize) {
     batches.push(numbers.slice(i, i + batchSize));
   }
 
-  log.info(`[ADVANCED] Split ${total} numbers into ${batches.length} batches (20 per batch)`);
+  log.info(`[ADVANCED] Split ${total} numbers into ${batches.length} batches (50 per batch)`);
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i];
@@ -260,7 +307,7 @@ const processBulkBioAdvanced = async (
     await processBatch(batch, userId);
 
     if (i < batches.length - 1) {
-      const batchDelay = 500;
+      const batchDelay = 200;
       log.info(`[BATCH] Yielding ${batchDelay}ms for other requests...`);
       await new Promise((resolve) => globalThis.setTimeout(resolve, batchDelay));
       await new Promise((resolve) => globalThis.setImmediate(resolve));
@@ -273,22 +320,53 @@ const processBulkBioAdvanced = async (
 
 
 
+// -- extractYearsFromBio --
+const extractYearsFromBio = (bioText) => {
+  if (!bioText) {
+    return [];
+  }
+
+  const yearPattern = /\b(19\d{2}|20\d{2})\b/g;
+  const matches = bioText.match(yearPattern);
+
+  if (!matches) {
+    return [];
+  }
+
+  const years = matches.map(y => parseInt(y, 10));
+  return [...new Set(years)].sort((a, b) => b - a);
+};
+
 // -- generateBioTxt --
 const generateBioTxt = (results) => {
   const lines = [];
+  const yearStats = {};
 
   results.hasBio.forEach((r) => {
     let badge = '';
-    if (r.isVerified) {
-      badge = ' ✅ [Official Business]';
-    } else if (r.isBusiness) {
+    if (r.isBusiness) {
       badge = ' 💼 [WhatsApp Business]';
     }
     lines.push(`${r.phone}${badge}`);
     lines.push(`Bio: ${r.bio}`);
     lines.push(`Set: ${r.setAt}`);
+
+    const setAtYears = extractYearsFromBio(r.setAt);
+    if (setAtYears.length > 0) {
+      const year = setAtYears[0];
+      yearStats[year] = (yearStats[year] || 0) + 1;
+    }
+
     lines.push('');
   });
+
+  if (Object.keys(yearStats).length > 0) {
+    lines.push('=== STATISTIK TAHUN BIO DI-SET ===');
+    const sortedYears = Object.keys(yearStats).sort((a, b) => b - a);
+    sortedYears.forEach(year => {
+      lines.push(`${year}: ${yearStats[year]} bio`);
+    });
+  }
 
   return lines.join('\n');
 };
@@ -300,13 +378,13 @@ const generateNoBioTxt = (results) => {
   results.noBio.forEach((r) => {
     const phone = typeof r === 'string' ? r : r.phone;
     let badge = '';
+
     if (typeof r === 'object') {
-      if (r.isVerified) {
-        badge = ' ✅ [Official Business]';
-      } else if (r.isBusiness) {
+      if (r.isBusiness) {
         badge = ' 💼 [WhatsApp Business]';
       }
     }
+
     lines.push(`${phone}${badge}`);
   });
 
@@ -323,6 +401,38 @@ const generateNotRegisterTxt = (results) => {
 
   results.rateLimit.forEach((phone) => {
     lines.push(phone);
+  });
+
+  return lines.join('\n');
+};
+
+// -- generateWebsiteTxt --
+const generateWebsiteTxt = (results) => {
+  const lines = [];
+
+  results.hasWebsite.forEach((r) => {
+    lines.push(`${r.phone} 💼`);
+    lines.push(`Website: ${r.websites.join(', ')}`);
+    if (r.email) {
+      lines.push(`Email: ${r.email}`);
+    }
+    lines.push('');
+  });
+
+  return lines.join('\n');
+};
+
+// -- generateEmailTxt --
+const generateEmailTxt = (results) => {
+  const lines = [];
+
+  results.hasEmail.forEach((r) => {
+    lines.push(`${r.phone} 💼`);
+    lines.push(`Email: ${r.email}`);
+    if (r.websites && r.websites.length > 0) {
+      lines.push(`Website: ${r.websites.join(', ')}`);
+    }
+    lines.push('');
   });
 
   return lines.join('\n');
@@ -431,10 +541,12 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
 
     let summaryMsg = `✅ *Bio:* ${results.hasBio.length}\n` +
       `⚪ *No bio:* ${results.noBio.length}\n` +
+      `🌐 *Ada Website:* ${results.hasWebsite.length}\n` +
+      `📧 *Ada Email:* ${results.hasEmail.length}\n` +
       `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`;
 
     if (totalBizCount > 0) {
-      summaryMsg += `\n\n💼 *WA Business ditemukan:* ${totalBizCount}`;
+      summaryMsg += `\n\n💼 *WA Business total:* ${totalBizCount}`;
     }
 
     if (numbersToProcess.length <= 10 && !isFromFile && remainingNumbers.length === 0) {
@@ -448,10 +560,33 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
       if (results.hasBio.length > 0) {
         const bioTxt = generateBioTxt(results);
         const bioBuffer = globalThis.Buffer.from(bioTxt, 'utf-8');
+
+        const yearStats = {};
+        results.hasBio.forEach(r => {
+          const setAtYear = extractYearsFromBio(r.setAt);
+          if (setAtYear.length > 0) {
+            const year = setAtYear[0];
+            yearStats[year] = (yearStats[year] || 0) + 1;
+          }
+        });
+
+        log.info('[YEAR-STATS] Year statistics from setAt:', yearStats);
+
         let bioCaption = `✅ *Bio* (${results.hasBio.length})`;
         if (bioBizCount > 0) {
           bioCaption += `\n💼 ${bioBizCount} akun bisnis`;
         }
+
+        if (Object.keys(yearStats).length > 0) {
+          const sortedYears = Object.keys(yearStats).sort((a, b) => b - a);
+          const yearSummary = sortedYears.map(year => {
+            return `${year} (${yearStats[year]})`;
+          }).join(', ');
+          bioCaption += `\n📅 ${yearSummary}`;
+        }
+
+        log.info(`[CAPTION] Final bio caption: ${bioCaption}`);
+
         await ctx.api.sendDocument(
           userId,
           new InputFile(bioBuffer, `bio_${Date.now()}.txt`),
@@ -471,9 +606,35 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
         }
         await ctx.api.sendDocument(
           userId,
-          new InputFile(noBioBuffer, `nobio_${Date.now()}.txt`),
+          new InputFile(noBioBuffer, `tanpabio_${Date.now()}.txt`),
           {
             caption: noBioCaption,
+            parse_mode: 'Markdown',
+          },
+        );
+      }
+
+      if (results.hasWebsite.length > 0) {
+        const websiteTxt = generateWebsiteTxt(results);
+        const websiteBuffer = globalThis.Buffer.from(websiteTxt, 'utf-8');
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(websiteBuffer, `website_${Date.now()}.txt`),
+          {
+            caption: `🌐 *Ada Website* (${results.hasWebsite.length})`,
+            parse_mode: 'Markdown',
+          },
+        );
+      }
+
+      if (results.hasEmail.length > 0) {
+        const emailTxt = generateEmailTxt(results);
+        const emailBuffer = globalThis.Buffer.from(emailTxt, 'utf-8');
+        await ctx.api.sendDocument(
+          userId,
+          new InputFile(emailBuffer, `email_${Date.now()}.txt`),
+          {
+            caption: `📧 *Ada Email* (${results.hasEmail.length})`,
             parse_mode: 'Markdown',
           },
         );
@@ -488,7 +649,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
         const totalNotReg = results.unregistered.length + results.rateLimit.length;
         await ctx.api.sendDocument(
           userId,
-          new InputFile(notRegisterBuffer, `notregister_${Date.now()}.txt`),
+          new InputFile(notRegisterBuffer, `tidakterdaftar_${Date.now()}.txt`),
           {
             caption: `❌ *Not register* (${totalNotReg})`,
             parse_mode: 'Markdown',
@@ -562,9 +723,20 @@ export const handleBioPhoneInput = async (ctx) => {
       }
 
       await ctx.reply('📥 Baca file dulu...');
-      const content = await readFileContent(ctx, doc.file_id);
-      numbers = parsePhoneNumbers(content);
-      isFromFile = true;
+      try {
+        const content = await readFileContent(ctx, doc.file_id);
+        numbers = parsePhoneNumbers(content);
+        isFromFile = true;
+      } catch (fileError) {
+        log.error({
+          error: fileError.message,
+          stack: fileError.stack,
+          docId: doc.file_id,
+        }, 'Failed to read uploaded document');
+        await ctx.reply(`❌ ${fileError.message}`);
+        ctx.session.waitingForBioPhone = false;
+        return;
+      }
     } else if (ctx.message?.reply_to_message?.document) {
       const doc = ctx.message.reply_to_message.document;
 
@@ -602,7 +774,7 @@ export const handleBioPhoneInput = async (ctx) => {
     if (numbers.length === 1) {
       await ctx.reply('⏳ Ambil info bio dulu...');
 
-      const result = await fetchBioForUser(socket, numbers[0]);
+      const result = await fetchBioForUserOptimized(socket, numbers[0]);
 
       let message = '';
       let badge = '';
@@ -615,9 +787,39 @@ export const handleBioPhoneInput = async (ctx) => {
 
       if (result.category === 'hasBio') {
         message = `✅ *Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
+
+        if (result.isBusiness) {
+          const extras = [];
+          if (result.websites && result.websites.length > 0) {
+            extras.push(`🌐 Web: ${result.websites.join(', ')}`);
+          }
+          if (result.email) {
+            extras.push(`📧 ${result.email}`);
+          }
+
+          if (extras.length > 0) {
+            message += `\n\n${extras.join('\n')}`;
+          }
+        }
+
         log.info(`[SINGLE] Bio fetched for ${result.phone}`);
       } else if (result.category === 'noBio') {
         message = `⚪ *No bio:* \`${result.phone}\`${badge}`;
+
+        if (result.isBusiness) {
+          const extras = [];
+          if (result.websites && result.websites.length > 0) {
+            extras.push(`🌐 Web: ${result.websites.join(', ')}`);
+          }
+          if (result.email) {
+            extras.push(`📧 ${result.email}`);
+          }
+
+          if (extras.length > 0) {
+            message += `\n\n${extras.join('\n')}`;
+          }
+        }
+
         log.warn(`[SINGLE] No bio for ${result.phone}`);
       } else if (result.category === 'unregistered') {
         message = `❌ *Not register:* \`${result.phone}\``;
@@ -665,7 +867,13 @@ export const handleBioPhoneInput = async (ctx) => {
 
     ctx.session.waitingForBioPhone = false;
   } catch (error) {
-    log.error({ error }, 'Error handling bio phone input');
+    log.error({
+      error: error.message,
+      stack: error.stack,
+      telegramId: ctx.from?.id,
+      hasMessage: !!ctx.message,
+      hasDocument: !!ctx.message?.document,
+    }, 'Error handling bio phone input');
     await ctx.reply(`❌ Error: ${error.message || 'Gagal cek bio'}`);
     ctx.session.waitingForBioPhone = false;
   }

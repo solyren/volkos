@@ -20,6 +20,10 @@ import {
   handleBioPhoneInput,
 } from './handlers/check-bio.js';
 import {
+  handleDebugCommand,
+  handleDebugPhoneInput,
+} from './handlers/debug-number.js';
+import {
   handleAdminUsersList,
   handleAdminAddUserStart,
   handleAdminStatus,
@@ -144,6 +148,7 @@ export const createBot = () => {
       if (text === '🔙 Batal') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
+        ctx.session.waitingForDebugPhone = false;
         ctx.session.adminAddUserId = undefined;
         ctx.session.adminAddUserDays = undefined;
         ctx.session.settingTrialDays = false;
@@ -164,6 +169,14 @@ export const createBot = () => {
             reply_markup: userMainMenu(),
           });
         }
+        return;
+      }
+
+      if (ctx.session?.waitingForDebugPhone) {
+        if (text.startsWith('/')) {
+          return;
+        }
+        await handleDebugPhoneInput(ctx);
         return;
       }
 
@@ -198,6 +211,7 @@ export const createBot = () => {
       if (text === '🔙 Kembali') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
+        ctx.session.waitingForDebugPhone = false;
         ctx.session.adminAddUserId = undefined;
         const user = await getUser(ctx.from?.id);
         if (user?.role === 'owner') {
@@ -205,6 +219,15 @@ export const createBot = () => {
             reply_markup: ownerMainMenu(),
           });
         }
+        return;
+      }
+
+      if (text === '/debug') {
+        ctx.session.waitingForPhone = false;
+        ctx.session.waitingForBioPhone = false;
+        ctx.session.waitingForDebugPhone = false;
+        ctx.session.adminAddUserId = undefined;
+        await handleDebugCommand(ctx);
         return;
       }
 

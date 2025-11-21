@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0](https://github.com/solyren/volkos/compare/volkos-v0.5.0...volkos-v1.0.0) (2025-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove feature free trial for user
+
+### Features
+
+* **check-bio:** add detail web, email and optimize check bio ([739e502](https://github.com/solyren/volkos/commit/739e502506a5bc21408a2d26805caedbf18d9b15))
+* remove feature free trial for user ([90177d4](https://github.com/solyren/volkos/commit/90177d42b63749d6fc3b4c400f8f655c57a11a1c))
+
 ## [0.5.0](https://github.com/solyren/volkos/compare/volkos-v0.4.0...volkos-v0.5.0) (2025-11-05)
 
 

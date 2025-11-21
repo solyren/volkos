@@ -1,5 +1,5 @@
 import { createLogger } from '../logger.js';
-import { getUser, isUserExpired } from '../db/users.js';
+import { getUser } from '../db/users.js';
 
 const log = createLogger('AuthMiddleware');
 
@@ -18,13 +18,10 @@ export const checkUserExists = async (ctx, next) => {
     if (!user) {
       const ownerId = Number(process.env.TELEGRAM_ADMIN_ID);
       const isOwner = userId === ownerId;
-      const role = isOwner ? 'owner' : 'trial';
-      const ownerMsg = `Owner detected: ${userId}`;
-      const trialMsg = `New user detected: ${userId}, creating trial account`;
-      const msg = isOwner ? ownerMsg : trialMsg;
-      log.info(msg);
+      const role = isOwner ? 'owner' : 'user';
+      log.info(`New user detected: ${userId}, creating ${role} account`);
       const { createUser } = await import('../db/users.js');
-      await createUser(userId, role, isOwner ? null : 1);
+      await createUser(userId, role);
       ctx.user = { userId, role, isNew: true };
     } else {
       ctx.user = user;
@@ -45,10 +42,8 @@ export const checkUserActive = async (ctx, next) => {
       return;
     }
 
-    const expired = await isUserExpired(ctx.user.userId);
-
-    if (expired || !ctx.user.isActive) {
-      await ctx.reply('❌ Akses lo udah expired. Chat owner buat perpanjang.');
+    if (!ctx.user.isActive) {
+      await ctx.reply('❌ Akses lo udah dinonaktifkan. Chat owner untuk info lebih lanjut.');
       return;
     }
 

@@ -25,29 +25,15 @@ export const sendNotification = async (bot, userId, message, photo = null) => {
 };
 
 // -- notifyUserAdded --
-export const notifyUserAdded = async (bot, userId, role, expiryDays) => {
+export const notifyUserAdded = async (bot, userId, role) => {
   try {
     let message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n';
     message += '✅ Akun lo udah diaktifkan sama owner.\n\n';
-    message += `📋 *Role:* ${role.toUpperCase()}\n`;
+    message += `📋 *Role:* ${role.toUpperCase()}\n\n`;
+    message += '💡 Ketik /start untuk mulai!';
 
-    if (role === 'owner') {
-      message += '⏳ *Akses:* Permanen (♾️)\n\n';
-    } else if (role === 'trial') {
-      message += `⏳ *Durasi Trial:* ${expiryDays} hari\n\n`;
-      message += `⚠️ Trial lo bakal expire setelah ${expiryDays} hari.\n`;
-    } else if (expiryDays && expiryDays > 0) {
-      message += `⏳ *Durasi Akses:* ${expiryDays} hari\n\n`;
-      const expiryDate = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
-      message += `📅 Expire: ${expiryDate.toLocaleDateString('id-ID')}\n`;
-    } else {
-      message += '⏳ *Akses:* Permanen (♾️)\n\n';
-    }
-
-    message += '\n💡 Ketik /start untuk mulai!';
-
-    const photo = role === 'trial' ?
-      config.thumbnails.welcomeTrial :
+    const photo = role === 'owner' ?
+      config.thumbnails.welcomeOwner :
       config.thumbnails.welcomeUser;
 
     await sendNotification(bot, userId, message, photo);

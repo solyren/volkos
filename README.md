@@ -21,13 +21,23 @@ cp .env.example .env
 Edit `.env` dengan credentials:
 
 ```env
-TELEGRAM_TOKEN=your_token
-TELEGRAM_ADMIN_ID=your_admin_id
-UPSTASH_REDIS_REST_URL=your_redis_url
-UPSTASH_REDIS_REST_TOKEN=your_redis_token
-EMAIL_ENCRYPTION_KEY=your_32byte_hex_key
+# Required
+TELEGRAM_TOKEN=your_bot_token_here
+TELEGRAM_ADMIN_ID=123456789
+UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token_here
+EMAIL_ENCRYPTION_KEY=your_32_character_encryption_key_here_64hex
+
+# Optional - Group requirement (leave empty to disable)
+REQUIRED_GROUP_ID_1=
+REQUIRED_GROUP_ID_2=
+
+# Optional - System config
 DEBUG=false
-DEFAULT_TRIAL_DAYS=1
+
+# Optional - Welcome thumbnails (leave empty for defaults)
+THUMBNAIL_WELCOME_OWNER=
+THUMBNAIL_WELCOME_USER=
 ```
 
 Jalankan:
@@ -59,8 +69,7 @@ Bot hanya merespons private messages. Akses melalui `/start` command.
 
 ### Admin Features
 
-- Kelola user (tambah, perpanjang, hapus)
-- Set durasi trial default
+- Kelola user (tambah, hapus)
 - Broadcast pesan ke semua user
 - Setup email template
 - Convert XLSX to TXT (extract nomor)
@@ -72,7 +81,7 @@ Bot hanya merespons private messages. Akses melalui `/start` command.
 - Adaptive rate limiting untuk check bio (3-10/sec)
 - Email automation untuk fix nomor
 - File conversion (XLSX to TXT)
-- Role-based access control (Owner, User, Trial)
+- Role-based access control (Owner, User)
 - Redis-based state management
 - Cooldown system
 

@@ -26,8 +26,7 @@ export const handleStatusCommand = async (ctx) => {
     }
 
     const whatsappConnected = isUserSocketConnected(userId);
-    const role = user.role === 'owner' ? 'PEMILIK' :
-      user.role === 'user' ? 'PENGGUNA' : 'TRIAL';
+    const role = user.role === 'owner' ? 'PEMILIK' : 'PENGGUNA';
     const phoneStatus = user.whatsappPhone ? `✅ ${user.whatsappPhone}` : '❌ Belum pair';
     const connectionStatus = whatsappConnected ? '✅ Connected' : '❌ Disconnected';
 
@@ -74,18 +73,9 @@ export const handleStartCommand = async (ctx) => {
     let user = await getUser(userId);
 
     if (!user) {
-      const role = isOwner ? 'owner' : 'trial';
-      const msg = isOwner ? `Owner detected: ${userId}` : `New trial user: ${userId}`;
-      log.info(msg);
-
-      if (isOwner) {
-        await createUser(userId, 'owner', null);
-      } else {
-        const { getTrialDays } = await import('../../db/system.js');
-        const trialDays = await getTrialDays();
-        await createUser(userId, 'trial', trialDays);
-      }
-
+      const role = isOwner ? 'owner' : 'user';
+      log.info(`New ${role} detected: ${userId}`);
+      await createUser(userId, role);
       user = { userId, role, isNew: true };
     } else if (isOwner && user.role !== 'owner') {
       log.info(`Updating user ${userId} role to owner`);
@@ -99,7 +89,6 @@ export const handleStartCommand = async (ctx) => {
     if (user.role === 'owner') {
       message = '👑 *Selamat Datang, Owner!*\n\n' +
         '✨ Lo punya *akses unlimited* ke semua fitur.\n\n' +
-        '⏳ *Status Akses:* Permanen (♾️)\n\n' +
         '💼 *Panel Kontrol:*\n' +
         '• Kelola semua user\n' +
         '• Setting sistem\n' +
@@ -107,57 +96,15 @@ export const handleStartCommand = async (ctx) => {
         '• Akses bot penuh\n\n' +
         '💡 Pilih menu di bawah:';
       thumbnail = config.thumbnails.welcomeOwner;
-    } else if (user.role === 'trial') {
-      const now = Date.now();
-      const expiryTime = user.expiryTime || 0;
-      const remainingMs = expiryTime - now;
-      const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
-      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-
-      const timeText = remainingDays > 0 ?
-        `${remainingDays} hari` :
-        remainingHours > 0 ? `${remainingHours} jam` : 'Kedaluwarsa';
-
+    } else {
       message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
-        '✨ Lo pake *Akun Trial*\n\n' +
-        `⏳ *Waktu Tersisa:* ${timeText}\n` +
-        `📅 *Kedaluwarsa:* ${new Date(expiryTime).toLocaleString('id-ID')}\n\n` +
+        '✨ Selamat datang! Semua fitur tersedia untuk lo.\n\n' +
         '🚀 *Fitur:*\n' +
         '• Sambung WhatsApp\n' +
-        '• Cek bio (bulk)\n' +
-        '• Manajemen koneksi\n\n' +
-        '💡 Chat owner buat upgrade!\n\n' +
+        '• Cek bio (bulk turbo)\n' +
+        '• Full akses koneksi\n' +
+        '• Support prioritas\n\n' +
         '👇 Pilih menu:';
-      thumbnail = config.thumbnails.welcomeTrial;
-    } else {
-      const now = Date.now();
-      const expiryTime = user.expiryTime;
-
-      if (expiryTime && expiryTime > 0) {
-        const remainingMs = expiryTime - now;
-        const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
-
-        message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
-          '✨ Lo punya *Akses Premium*\n\n' +
-          `⏳ *Durasi:* ${remainingDays} hari lagi\n` +
-          `📅 *Kedaluwarsa:* ${new Date(expiryTime).toLocaleString('id-ID')}\n\n` +
-          '🚀 *Fitur:*\n' +
-          '• Sambung WhatsApp\n' +
-          '• Cek bio (bulk turbo)\n' +
-          '• Full akses koneksi\n' +
-          '• Support prioritas\n\n' +
-          '👇 Pilih menu:';
-      } else {
-        message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
-          '✨ Lo punya *Akses Permanen*\n\n' +
-          '⏳ *Status:* Unlimited (♾️)\n\n' +
-          '🚀 *Fitur:*\n' +
-          '• Sambung WhatsApp\n' +
-          '• Cek bio (bulk turbo)\n' +
-          '• Full akses koneksi\n' +
-          '• Support prioritas\n\n' +
-          '👇 Pilih menu:';
-      }
       thumbnail = config.thumbnails.welcomeUser;
     }
 
@@ -200,16 +147,14 @@ export const handleHelpCommand = async (ctx) => {
       message = '*VOLKOS Bot - Panduan Pemilik*\n\n' +
         '*Fitur Pemilik:*\n' +
         '👥 Lihat User - Daftar semua user dengan status\n' +
-        '➕ Tambah User - Buat user permanen: `<id> <hari>`\n' +
+        '➕ Tambah User - Buat user baru\n' +
         '📊 Status Sistem - Lihat statistik sistem\n' +
-        '⚙️ Atur Hari Trial - Konfigurasi durasi trial otomatis\n' +
         '📢 Siaran - Kirim pesan ke semua user\n' +
         '📱 Pairing - Sambungkan akun WhatsApp\n' +
         '🔍 Cek Bio - Cek bio WhatsApp (bulk)\n\n' +
         '*Tambah User:*\n' +
-        '• Format: `<id> <hari>` (contoh `123456789 30`)\n' +
-        '• Peran: 👤 Pengguna (hari custom) atau 👑 Pemilik (permanen)\n' +
-        '• Hari=0 untuk user permanen\n\n' +
+        '• Kirim ID user yang ingin ditambahkan\n' +
+        '• Pilih peran: 👤 Pengguna atau 👑 Pemilik\n\n' +
         '*Cara Pakai Cek Bio:*\n' +
         '• Kirim 1 nomor → Cek tunggal\n' +
         '• Kirim banyak nomor → Cek bulk (mode turbo)\n' +

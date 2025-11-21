@@ -3,7 +3,6 @@ import { validateConfig } from './config.js';
 import { createBot, startBot } from './telegram/bot.js';
 import { autoConnectAllUsers } from './whatsapp/socket-pool.js';
 import { initRedis } from './db/redis.js';
-import { startTrialExpiryJob } from './jobs/trial-expiry.js';
 import { cleanupCorruptKeys } from './db/cleanup.js';
 
 const log = createLogger('Main');
@@ -27,9 +26,6 @@ const main = async () => {
     });
 
     const bot = createBot();
-
-    log.info('Starting trial expiry background job...');
-    startTrialExpiryJob(bot);
 
     await startBot(bot);
   } catch (error) {

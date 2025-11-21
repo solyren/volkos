@@ -27,7 +27,6 @@ import {
   handleAdminUsersList,
   handleAdminAddUserStart,
   handleAdminStatus,
-  handleSetTrialDaysStart,
   handleViewUserDetail,
   handleBackToUsersList,
 } from './handlers/admin-buttons.js';
@@ -151,12 +150,10 @@ export const createBot = () => {
         ctx.session.waitingForDebugPhone = false;
         ctx.session.adminAddUserId = undefined;
         ctx.session.adminAddUserDays = undefined;
-        ctx.session.settingTrialDays = false;
         ctx.session.waitingForBroadcast = false;
         ctx.session.settingEmailTemplate = false;
         ctx.session.setupEmail = undefined;
         ctx.session.fixingNomor = false;
-        ctx.session.extendingUser = false;
         ctx.session.removingUser = false;
         const user = await getUser(ctx.from?.id);
         const msg = '✅ Dibatalkan';
@@ -255,103 +252,7 @@ export const createBot = () => {
 
 
 
-      if (ctx.session?.settingTrialDays) {
-        const days = Number(text);
 
-        if (isNaN(days) || days < 1) {
-          await ctx.reply('❌ Invalid. Please enter a positive number (minimum 1 day).');
-          return;
-        }
-
-        const { setTrialDays } = await import('../db/system.js');
-        await setTrialDays(days);
-        ctx.session.settingTrialDays = false;
-
-        log.info(`[TRIAL] Updated trial days to: ${days}`);
-        await ctx.reply(
-          '✅ *Trial Duration Updated*\n\n' +
-          `New duration: *${days} days*\n` +
-          'New users will get this duration.',
-          {
-            parse_mode: 'Markdown',
-            reply_markup: ownerMainMenu(),
-          },
-        );
-        return;
-      }
-
-      if (ctx.session?.extendingUser) {
-        const parts = text.trim().split(/\s+/);
-
-        if (parts.length !== 2) {
-          await ctx.reply(
-            '❌ Invalid format. Send: `<userId> <days>`\nExample: `123456789 7`',
-            { parse_mode: 'Markdown' },
-          );
-          return;
-        }
-
-        const userId = parts[0];
-        const additionalDays = Number(parts[1]);
-
-        if (isNaN(additionalDays) || additionalDays <= 0) {
-          await ctx.reply('❌ Invalid days. Must be a positive number.');
-          return;
-        }
-
-        const { extendUser } = await import('../db/users.js');
-        const targetUser = await getUser(userId);
-
-        if (!targetUser) {
-          await ctx.reply(`❌ User ${userId} not found.`, {
-            reply_markup: ownerMainMenu(),
-          });
-          ctx.session.extendingUser = false;
-          return;
-        }
-
-        if (targetUser.role === 'owner') {
-          await ctx.reply('❌ Cannot extend owner access (already permanent).', {
-            reply_markup: ownerMainMenu(),
-          });
-          ctx.session.extendingUser = false;
-          return;
-        }
-
-        const updatedUser = await extendUser(userId, additionalDays);
-
-        if (!updatedUser) {
-          await ctx.reply('❌ Failed to extend user.', {
-            reply_markup: ownerMainMenu(),
-          });
-          ctx.session.extendingUser = false;
-          return;
-        }
-
-        const newExpiry = new Date(updatedUser.expiryTime);
-        const remainingDays = Math.ceil(
-          (updatedUser.expiryTime - Date.now()) / (24 * 60 * 60 * 1000),
-        );
-
-        const { notifyUserExtended } = await import('./utils/notifications.js');
-        await notifyUserExtended(ctx.api, userId, additionalDays, updatedUser.expiryTime);
-
-        await ctx.reply(
-          '✅ *User Extended Successfully!*\n\n' +
-          `User ID: \`${userId}\`\n` +
-          `Added: *${additionalDays} day(s)*\n` +
-          `New Expiry: ${newExpiry.toLocaleString()}\n` +
-          `Total Remaining: *${remainingDays} day(s)*\n\n` +
-          '📩 Notification sent to user.',
-          {
-            parse_mode: 'Markdown',
-            reply_markup: ownerMainMenu(),
-          },
-        );
-
-        ctx.session.extendingUser = false;
-        return;
-      }
 
       if (ctx.session?.removingUser) {
         const userId = text.trim();
@@ -413,40 +314,28 @@ export const createBot = () => {
         }
 
         const userId = ctx.session.adminAddUserId;
-        const customDays = ctx.session.adminAddUserDays;
         const { createUser } = await import('../db/users.js');
 
         const existingUser = await getUser(userId);
 
-        if (existingUser && existingUser.role !== 'trial') {
+        if (existingUser) {
           const existingRole = existingUser.role.toUpperCase();
           await ctx.reply(`❌ User ${userId} already exists with role: ${existingRole}`, {
             reply_markup: ownerMainMenu(),
           });
           ctx.session.adminAddUserId = undefined;
-          ctx.session.adminAddUserDays = undefined;
           return;
         }
 
-        if (existingUser && existingUser.role === 'trial') {
-          log.info(`Upgrading trial user ${userId} to ${role}`);
-        }
-
-        const expiryDays = role === 'owner' ? null : customDays;
-
-        await createUser(userId, role, expiryDays);
+        await createUser(userId, role);
 
         const { notifyUserAdded } = await import('../telegram/utils/notifications.js');
-        await notifyUserAdded(ctx.api, String(userId), role, expiryDays);
-
-        const durationText = role === 'owner' ? '♾️ Permanent' :
-          customDays === 0 ? '♾️ Permanent' : `${expiryDays} day(s)`;
+        await notifyUserAdded(ctx.api, String(userId), role, null);
 
         await ctx.reply(
           '✅ User created successfully!\n\n' +
           `ID: \`${userId}\`\n` +
-          `Role: *${role.toUpperCase()}*\n` +
-          `Duration: ${durationText}\n\n` +
+          `Role: *${role.toUpperCase()}*\n\n` +
           '📩 Notification sent to user.',
           {
             parse_mode: 'Markdown',
@@ -455,39 +344,21 @@ export const createBot = () => {
         );
 
         ctx.session.adminAddUserId = undefined;
-        ctx.session.adminAddUserDays = undefined;
         return;
       }
 
       if (ctx.session?.adminAddUserId === null) {
-        const parts = text.trim().split(/\s+/);
-
-        if (parts.length !== 2) {
-          await ctx.reply('❌ Invalid format. Send: `<userId> <days>`\nExample: `123456789 30`', {
-            parse_mode: 'Markdown',
-          });
-          return;
-        }
-
-        const userId = Number(parts[0]);
-        const days = Number(parts[1]);
+        const userId = Number(text.trim());
 
         if (isNaN(userId) || userId <= 0) {
           await ctx.reply('❌ Invalid user ID. Must be a positive number.');
           return;
         }
 
-        if (isNaN(days) || days < 0) {
-          await ctx.reply('❌ Invalid days. Must be 0 (permanent) or positive number.');
-          return;
-        }
-
         ctx.session.adminAddUserId = userId;
-        ctx.session.adminAddUserDays = days;
 
         const message = '*User Creation Confirmed*\n\n' +
-          `User ID: \`${userId}\`\n` +
-          `Duration: *${days === 0 ? 'Permanent' : `${days} day(s)`}*\n\n` +
+          `User ID: \`${userId}\`\n\n` +
           'Select role:';
 
         await ctx.reply(message, {
@@ -530,24 +401,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '⚙️ Atur Hari Trial') {
-        ctx.session.waitingForPhone = false;
-        ctx.session.waitingForBioPhone = false;
-        ctx.session.adminAddUserId = undefined;
-        ctx.session.settingTrialDays = false;
-        await handleSetTrialDaysStart(ctx);
-        return;
-      }
 
-      if (text === '🔄 Perpanjang User') {
-        ctx.session.waitingForPhone = false;
-        ctx.session.waitingForBioPhone = false;
-        ctx.session.adminAddUserId = undefined;
-        ctx.session.extendingUser = false;
-        const { handleExtendUserStart } = await import('./handlers/admin-buttons.js');
-        await handleExtendUserStart(ctx);
-        return;
-      }
 
       if (text === '🗑️ Hapus User') {
         ctx.session.waitingForPhone = false;

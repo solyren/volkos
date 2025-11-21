@@ -17,9 +17,6 @@ export const config = {
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
   },
-  system: {
-    defaultTrialDays: Number(process.env.DEFAULT_TRIAL_DAYS) || 1,
-  },
   groups: {
     requiredGroupId1: process.env.REQUIRED_GROUP_ID_1 ?
       Number(process.env.REQUIRED_GROUP_ID_1) : null,

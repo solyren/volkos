@@ -2,7 +2,6 @@ import { createLogger } from '../../logger.js';
 import { InlineKeyboard } from 'grammy';
 import { getAllUsers, getUser } from '../../db/users.js';
 import { mainAdminMenu, cancelKeyboard } from '../keyboards.js';
-import { getTrialDays } from '../../db/system.js';
 
 const log = createLogger('TelegramAdminButtons');
 
@@ -24,10 +23,8 @@ export const handleAdminUsersList = async (ctx) => {
     let buttonCount = 0;
 
     for (const user of users) {
-      const roleEmoji = user.role === 'owner' ? '👑' :
-        user.role === 'user' ? '👤' : '⏳';
-      const roleName = user.role === 'owner' ? 'Pemilik' :
-        user.role === 'user' ? 'Pengguna' : 'Trial';
+      const roleEmoji = user.role === 'owner' ? '👑' : '👤';
+      const roleName = user.role === 'owner' ? 'Pemilik' : 'Pengguna';
       const statusIcon = user.isActive ? '✅' : '❌';
 
       message += `${roleEmoji} ${roleName} ${statusIcon}\n`;
@@ -72,34 +69,11 @@ export const handleViewUserDetail = async (ctx) => {
       return;
     }
 
-    const roleEmoji = user.role === 'owner' ? '👑' :
-      user.role === 'user' ? '👤' : '⏳';
-    const roleName = user.role === 'owner' ? 'Pemilik' :
-      user.role === 'user' ? 'Pengguna' : 'Trial';
+    const roleEmoji = user.role === 'owner' ? '👑' : '👤';
+    const roleName = user.role === 'owner' ? 'Pemilik' : 'Pengguna';
     const status = user.isActive ? '✅ Aktif' : '❌ Tidak Aktif';
     const phone = user.whatsappPhone || '🚫 Belum diatur';
     const paired = user.whatsappPaired ? '✅ Paired' : '❌ Unpaired';
-
-    let expiryText = '';
-    if (user.expiryTime) {
-      const expiryDate = new Date(user.expiryTime);
-      const now = new Date();
-      const isExpired = expiryDate < now;
-      const dateStr = expiryDate.toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-      const timeStr = expiryDate.toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      expiryText = isExpired ?
-        `⏰ Kedaluwarsa: ${dateStr} ${timeStr}` :
-        `⏳ Akan Kedaluwarsa: ${dateStr} ${timeStr}`;
-    } else {
-      expiryText = '♾️ Akses Permanen';
-    }
 
     const message = `${roleEmoji} *Informasi User*\n` +
       '━━━━━━━━━━━━━━━━━━\n\n' +
@@ -108,7 +82,6 @@ export const handleViewUserDetail = async (ctx) => {
       `🟢 *Status*\n${status}\n\n` +
       `📱 *Nomor Telepon*\n${phone}\n\n` +
       `💬 *WhatsApp*\n${paired}\n\n` +
-      `⏰ *Periode Akses*\n${expiryText}\n\n` +
       '━━━━━━━━━━━━━━━━━━';
 
     const backButton = new InlineKeyboard().text(
@@ -148,17 +121,15 @@ export const handleAdminStatus = async (ctx) => {
     const users = await getAllUsers();
     const activeUsers = users.filter((u) => u.isActive).length;
     const pairedUsers = users.filter((u) => u.whatsappPaired).length;
-    const trialUsers = users.filter((u) => u.role === 'trial').length;
-    const permanentUsers = users.filter((u) => u.role === 'user').length;
-    const trialDays = await getTrialDays();
+    const ownerUsers = users.filter((u) => u.role === 'owner').length;
+    const regularUsers = users.filter((u) => u.role === 'user').length;
 
     const message = '📊 Status Sistem\n\n' +
       `Total User: ${users.length}\n` +
       `User Aktif: ${activeUsers}\n` +
       `User Tersambung: ${pairedUsers}\n\n` +
-      `User Trial: ${trialUsers}\n` +
-      `User Permanen: ${permanentUsers}\n\n` +
-      `⚙️ Durasi Trial: ${trialDays} hari`;
+      `👑 Pemilik: ${ownerUsers}\n` +
+      `👤 Pengguna: ${regularUsers}`;
 
     await ctx.reply(message, {
       reply_markup: mainAdminMenu(),
@@ -184,14 +155,11 @@ export const handleAdminMainMenu = async (ctx) => {
 export const handleAdminAddUserStart = async (ctx) => {
   try {
     const message = '*➕ Tambah User Baru*\n\n' +
-      'Kirim format: `<userId> <hari>`\n\n' +
-      '*Contoh:*\n' +
-      '• `123456789 30` - User dengan akses 30 hari\n' +
-      '• `987654321 0` - User permanen\n\n' +
+      'Kirim ID user:\n' +
+      'Contoh: `123456789`\n\n' +
       '*Pilihan Peran:*\n' +
-      '👤 Pengguna - User biasa dengan masa berlaku custom\n' +
-      '👑 Pemilik - Akses admin penuh (permanen)\n\n' +
-      '*💡 Catatan:* Hari hanya berlaku untuk peran Pengguna';
+      '👤 Pengguna - User biasa\n' +
+      '👑 Pemilik - Akses admin penuh';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -203,49 +171,7 @@ export const handleAdminAddUserStart = async (ctx) => {
   }
 };
 
-// -- handleSetTrialDaysStart --
-export const handleSetTrialDaysStart = async (ctx) => {
-  try {
-    const currentDays = await getTrialDays();
-    log.info(`[TRIAL] Current trial days: ${currentDays}`);
-    const message = '⚙️ *Set Trial Duration*\n\n' +
-      `✅ Current: *${currentDays} days*\n\n` +
-      'Send new duration (days):\n' +
-      'Example: `7` for 7 days';
 
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      reply_markup: cancelKeyboard(),
-    });
-    ctx.session.settingTrialDays = true;
-  } catch (error) {
-    log.error({ error }, 'Error in set trial days start');
-  }
-};
-
-// -- handleExtendUserStart --
-export const handleExtendUserStart = async (ctx) => {
-  try {
-    const message = '*🔄 Perpanjang Akses User*\n\n' +
-      'Kirim format: `<userId> <hariTambahan>`\n\n' +
-      '*Contoh:*\n' +
-      '• `123456789 7` - Tambah 7 hari\n' +
-      '• `987654321 30` - Tambah 30 hari\n\n' +
-      '*Catatan:*\n' +
-      '• Hari akan ditambahkan ke masa berlaku saat ini\n' +
-      '• Berlaku untuk peran Pengguna dan Trial\n' +
-      '• Peran Pemilik selalu permanen';
-
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
-      reply_markup: cancelKeyboard(),
-    });
-
-    ctx.session.extendingUser = true;
-  } catch (error) {
-    log.error({ error }, 'Error in extend user start');
-  }
-};
 
 // -- handleRemoveUserStart --
 export const handleRemoveUserStart = async (ctx) => {

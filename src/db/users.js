@@ -4,22 +4,15 @@ import { getRedis } from './redis.js';
 const log = createLogger('UserDB');
 
 // -- createUser --
-export const createUser = async (userId, role = 'trial', expiryDays = null) => {
+export const createUser = async (userId, role = 'user') => {
   try {
     const redis = getRedis();
     const now = Date.now();
-
-    let expiryTime = null;
-
-    if (expiryDays !== null && expiryDays > 0) {
-      expiryTime = now + expiryDays * 24 * 60 * 60 * 1000;
-    }
 
     const userData = {
       userId: String(userId),
       role,
       createdAt: now,
-      expiryTime,
       whatsappPhone: null,
       whatsappPaired: false,
       isActive: true,
@@ -27,10 +20,7 @@ export const createUser = async (userId, role = 'trial', expiryDays = null) => {
 
     const jsonString = JSON.stringify(userData);
     await redis.set(`user:${userId}`, jsonString);
-    const expMsg = expiryTime ? `expiry: ${new Date(expiryTime).toISOString()}` : 'permanent';
-    log.info(
-      `[CREATE USER] ${userId} role=${role} expiryDays=${expiryDays} ${expMsg}`,
-    );
+    log.info(`[CREATE USER] ${userId} role=${role}`);
     return userData;
   } catch (error) {
     log.error({ error }, `Failed to create user ${userId}`);
@@ -127,35 +117,7 @@ export const updateUser = async (userId, updates) => {
   }
 };
 
-// -- extendUser --
-export const extendUser = async (userId, additionalDays) => {
-  try {
-    const user = await getUser(userId);
-    if (!user) {
-      log.warn(`Attempted to extend non-existent user: ${userId}`);
-      return null;
-    }
 
-    if (user.role === 'owner') {
-      log.warn(`Cannot extend owner user: ${userId}`);
-      return null;
-    }
-
-    const now = Date.now();
-    const currentExpiry = user.expiryTime || now;
-    const additionalMs = additionalDays * 24 * 60 * 60 * 1000;
-    const newExpiry = Math.max(currentExpiry, now) + additionalMs;
-
-    const updatedUser = { ...user, expiryTime: newExpiry, isActive: true };
-    const redis = getRedis();
-    await redis.set(`user:${userId}`, JSON.stringify(updatedUser));
-    log.info({ userId, additionalDays, newExpiry }, 'User extended and reactivated');
-    return updatedUser;
-  } catch (error) {
-    log.error({ error, userId }, 'Failed to extend user');
-    throw error;
-  }
-};
 
 // -- deleteUser --
 export const deleteUser = async (userId) => {
@@ -245,29 +207,7 @@ export const getUserByPhone = async (phoneNumber) => {
   }
 };
 
-// -- isUserExpired --
-export const isUserExpired = async (userId) => {
-  try {
-    const user = await getUser(userId);
 
-    if (!user || !user.expiryTime) {
-      return false;
-    }
-
-    const now = Date.now();
-    const expired = now > user.expiryTime;
-
-    if (expired) {
-      await updateUser(userId, { isActive: false });
-      log.info(`User ${userId} trial expired`);
-    }
-
-    return expired;
-  } catch (error) {
-    log.error({ error }, `Failed to check expiry for user ${userId}`);
-    throw error;
-  }
-};
 
 // -- setWhatsAppPairing --
 export const setWhatsAppPairing = async (userId, phoneNumber) => {

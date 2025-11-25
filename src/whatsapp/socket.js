@@ -1,4 +1,5 @@
-import makeWASocket, {
+import {
+  makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
 } from '@whiskeysockets/baileys';

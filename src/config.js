@@ -26,13 +26,13 @@ export const config = {
   thumbnails: {
     welcomeOwner:
       process.env.THUMBNAIL_WELCOME_OWNER ||
-      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&',
+      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&', // eslint-disable-line max-len
     welcomeUser:
       process.env.THUMBNAIL_WELCOME_USER ||
-      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&',
+      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&', // eslint-disable-line max-len
     welcomeTrial:
       process.env.THUMBNAIL_WELCOME_TRIAL ||
-      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&',
+      'https://cdn.discordapp.com/attachments/1036528456751656993/1432013081365446676/Picsart_25-10-26_21-28-17-096.jpg?ex=68ff819c&is=68fe301c&hm=2ca4e28eb6f9681403898aa3fca7c99274ccbb8f27c774f380d6e7ead9eff400&', // eslint-disable-line max-len
   },
   debug: process.env.DEBUG === 'true',
 };

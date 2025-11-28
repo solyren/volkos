@@ -74,7 +74,7 @@ export const extractWebsites = (text) => {
     return [];
   }
 
-  const urlPattern = /(?:https?:\/\/)(?:www\.)?[\w-]+\.[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)?/gi;
+  const urlPattern = /(?:https?:\/\/)(?:www\.)?[\w-]+\.[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)?/gi; // eslint-disable-line max-len
   const matches = text.match(urlPattern) || [];
 
   const websites = matches.filter((url) => {

@@ -65,8 +65,9 @@ const fetchStatusUsingUSync = async (socket, jid) => {
       .withContext('interactive')
       .withStatusProtocol();
 
-    const phone = `+${jid.replace('+', '').split('@')[0].split(':')[0]}`;
-    usyncQuery.withUser(new USyncUser().withPhone(phone));
+    // Use withId instead of withPhone to ensure JID is passed in user attributes
+    // This fixes the issue where withPhone requires ContactProtocol to work
+    usyncQuery.withUser(new USyncUser().withId(jid));
 
     log.info(`[USYNC-STATUS] Executing USyncQuery for ${jid}`);
     const results = await socket.executeUSyncQuery(usyncQuery);
@@ -118,7 +119,9 @@ export const checkIfRegisteredParallel = async (socket, jid) => {
 // -- detectBioCategory --
 export const detectBioCategory = (statusResponse, isRegistered, phoneNumber) => {
   try {
-    log.info(`[DETECT-DEBUG] ${phoneNumber}: Full statusResponse = ${JSON.stringify(statusResponse)}`);
+    log.info(
+      `[DETECT-DEBUG] ${phoneNumber}: Full statusResponse = ${JSON.stringify(statusResponse)}`,
+    );
     log.info(`[DETECT-DEBUG] ${phoneNumber}: isRegistered = ${isRegistered}`);
     log.info(`[DETECT-DEBUG] ${phoneNumber}: statusResponse type = ${typeof statusResponse}`);
 
@@ -253,9 +256,15 @@ export const fetchBioForUser = async (
     }
 
     log.info(`[FETCH-OPT] Parallel fetch completed for ${phoneNumber}`);
-    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: registrationInfo = ${JSON.stringify(registrationInfo)}`);
-    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: statusResponse RAW = ${JSON.stringify(statusResponse)}`);
-    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: businessProfile exists = ${!!businessProfile}`);
+    log.info(
+      `[FETCH-OPT-DEBUG] ${phoneNumber}: registrationInfo = ${JSON.stringify(registrationInfo)}`,
+    );
+    log.info(
+      `[FETCH-OPT-DEBUG] ${phoneNumber}: statusResponse RAW = ${JSON.stringify(statusResponse)}`,
+    );
+    log.info(
+      `[FETCH-OPT-DEBUG] ${phoneNumber}: businessProfile exists = ${!!businessProfile}`,
+    );
 
     if (registrationInfo && !registrationInfo.exists) {
       log.info(`[FETCH-OPT] ${phoneNumber} is not registered`);

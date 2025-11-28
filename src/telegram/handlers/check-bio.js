@@ -539,7 +539,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
     const noBioBizCount = results.noBio.filter(r => r.isBusiness).length;
     const totalBizCount = bioBizCount + noBioBizCount;
 
-    let summaryMsg = `*Bio:* ${results.hasBio.length}\n` +
+    let summaryMsg = `✅ *Bio:* ${results.hasBio.length}\n` +
       `⚪ *No bio:* ${results.noBio.length}\n` +
       `🌐 *Has Website:* ${results.hasWebsite.length}\n` +
       `📧 *Has Email:* ${results.hasEmail.length}\n` +
@@ -572,7 +572,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
 
         log.info('[YEAR-STATS] Year statistics from setAt:', yearStats);
 
-        let bioCaption = `*Bio* (${results.hasBio.length})`;
+        let bioCaption = `✅ *Bio* (${results.hasBio.length})`;
         if (bioBizCount > 0) {
           bioCaption += `\n💼 ${bioBizCount} business accounts`;
         }
@@ -786,7 +786,7 @@ export const handleBioPhoneInput = async (ctx) => {
       }
 
       if (result.category === 'hasBio') {
-        message = `*Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
+        message = `✅ *Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
 
         if (result.isBusiness) {
           const extras = [];

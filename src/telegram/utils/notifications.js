@@ -27,10 +27,10 @@ export const sendNotification = async (bot, userId, message, photo = null) => {
 // -- notifyUserAdded --
 export const notifyUserAdded = async (bot, userId, role) => {
   try {
-    let message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n';
-    message += '✅ Akun lo udah diaktifkan sama owner.\n\n';
+    let message = '🎉 *Welcome to VOLKSBOT!*\n\n';
+    message += 'Your account has been activated by the owner.\n\n';
     message += `📋 *Role:* ${role.toUpperCase()}\n\n`;
-    message += '💡 Ketik /start untuk mulai!';
+    message += '💡 Type /start to start!';
 
     const photo = role === 'owner' ?
       config.thumbnails.welcomeOwner :
@@ -47,10 +47,10 @@ export const notifyUserAdded = async (bot, userId, role) => {
 // -- notifyTrialExpiring --
 export const notifyTrialExpiring = async (bot, userId, minutesLeft) => {
   try {
-    const message = '⚠️ *Trial Hampir Habis!*\n\n' +
-      `Akses trial lo bakal expire dalam *${minutesLeft} menit*.\n\n` +
-      '📩 Hubungi owner untuk perpanjang akses lo.\n\n' +
-      '💡 Makasih udah pake VOLKSBOT!';
+    const message = '⚠️ *Trial Almost Expired!*\n\n' +
+      `Your trial access will expire in *${minutesLeft} minutes*.\n\n` +
+      '📩 Contact owner to extend your access.\n\n' +
+      '💡 Thanks for using VOLKSBOT!';
 
     await sendNotification(bot, userId, message);
     return true;
@@ -63,10 +63,10 @@ export const notifyTrialExpiring = async (bot, userId, minutesLeft) => {
 // -- notifyTrialExpired --
 export const notifyTrialExpired = async (bot, userId) => {
   try {
-    const message = '❌ *Trial Sudah Habis*\n\n' +
-      'Periode trial lo udah selesai.\n\n' +
-      '📩 Hubungi owner untuk perpanjang akses lo.\n\n' +
-      '💡 Makasih udah pake VOLKSBOT!';
+    const message = '❌ *Trial Expired*\n\n' +
+      'Your trial period has ended.\n\n' +
+      '📩 Contact owner to extend your access.\n\n' +
+      '💡 Thanks for using VOLKSBOT!';
 
     await sendNotification(bot, userId, message);
     return true;
@@ -82,12 +82,12 @@ export const notifyUserExtended = async (bot, userId, additionalDays, newExpiryT
     const newExpiry = new Date(newExpiryTime);
     const remainingDays = Math.ceil((newExpiryTime - Date.now()) / (24 * 60 * 60 * 1000));
 
-    const message = '🎉 *Akses Diperpanjang!*\n\n' +
-      '✅ Akses lo udah diperpanjang sama owner.\n\n' +
-      `➕ Ditambah: *${additionalDays} hari*\n` +
-      `📅 Expire Baru: ${newExpiry.toLocaleString('id-ID')}\n` +
-      `⏳ Total Sisa: *${remainingDays} hari*\n\n` +
-      '💡 Makasih udah pake VOLKSBOT!';
+    const message = '🎉 *Access Extended!*\n\n' +
+      'Your access has been extended by the owner.\n\n' +
+      `➕ Added: *${additionalDays} days*\n` +
+      `📅 New Expiry: ${newExpiry.toLocaleString('en-US')}\n` +
+      `⏳ Remaining Total: *${remainingDays} days*\n\n` +
+      '💡 Thanks for using VOLKSBOT!';
 
     await sendNotification(bot, userId, message);
     return true;
@@ -100,12 +100,12 @@ export const notifyUserExtended = async (bot, userId, additionalDays, newExpiryT
 // -- notifyUserRemoved --
 export const notifyUserRemoved = async (bot, userId) => {
   try {
-    const message = '❌ *Akses Dicabut*\n\n' +
-      'Akses lo ke VOLKSBOT udah dicabut sama owner.\n\n' +
-      '🔌 Koneksi WhatsApp udah diputus.\n' +
-      '🗑️ Akun lo udah dihapus.\n\n' +
-      '📩 Hubungi owner kalau lo yakin ini salah.\n\n' +
-      '💡 Makasih udah pake VOLKSBOT!';
+    const message = '❌ *Access Revoked*\n\n' +
+      'Your access to VOLKSBOT has been revoked by the owner.\n\n' +
+      '🔌 WhatsApp connection disconnected.\n' +
+      '🗑️ Your account has been deleted.\n\n' +
+      '📩 Contact owner if you believe this is a mistake.\n\n' +
+      '💡 Thanks for using VOLKSBOT!';
 
     await sendNotification(bot, userId, message);
     return true;

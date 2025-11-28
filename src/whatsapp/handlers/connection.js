@@ -12,7 +12,7 @@ export const handleConnectionUpdate = (update, setupFn, socket, userId, phoneNum
 
   if (connection === 'close') {
     const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-    const errorMsg = lastDisconnect?.error?.message || 'Koneksi gagal';
+    const errorMsg = lastDisconnect?.error?.message || 'Connection failed';
 
     const msg = `[DEBUG] Connection CLOSED: user=${userId}, status=${statusCode}`;
     log.error({ errorMsg }, msg);
@@ -53,7 +53,7 @@ export const handleConnectionUpdate = (update, setupFn, socket, userId, phoneNum
 
       const pairingCode = socketPool.getPairingCode(userId);
       if (pairingCode?.ctx) {
-        const msg = `✅ *VOLKSBOT Connected!*\n\nBerhasil pair WhatsApp dengan ${phoneNumber}`;
+        const msg = `*VOLKSBOT Connected!*\n\nSuccessfully paired WhatsApp with ${phoneNumber}`;
         pairingCode.ctx.reply(msg, {
           parse_mode: 'Markdown',
         }).catch((err) => {

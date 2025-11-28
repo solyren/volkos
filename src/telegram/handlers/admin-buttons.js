@@ -11,27 +11,26 @@ export const handleAdminUsersList = async (ctx) => {
     const users = await getAllUsers();
 
     if (users.length === 0) {
-      await ctx.reply('📋 Belum ada user', {
+      await ctx.reply('No users found', {
         reply_markup: mainAdminMenu(),
       });
       return;
     }
 
-    let message = `📊 Total: *${users.length}* user\n\n`;
+    let message = `*Total: ${users.length} users*\n\n`;
 
     const inlineKeyboard = new InlineKeyboard();
     let buttonCount = 0;
 
     for (const user of users) {
-      const roleEmoji = user.role === 'owner' ? '👑' : '👤';
-      const roleName = user.role === 'owner' ? 'Pemilik' : 'Pengguna';
-      const statusIcon = user.isActive ? '✅' : '❌';
+      const roleName = user.role === 'owner' ? 'Owner' : 'User';
+      const statusIcon = user.isActive ? 'Active' : 'Inactive';
 
-      message += `${roleEmoji} ${roleName} ${statusIcon}\n`;
+      message += `${roleName} ${statusIcon}\n`;
       message += `ID: \`${user.userId}\`\n\n`;
 
       inlineKeyboard.text(
-        `🔍 ${user.userId}`,
+        `${user.userId}`,
         `view_user:${user.userId}`,
       );
       buttonCount++;
@@ -63,29 +62,28 @@ export const handleViewUserDetail = async (ctx) => {
 
     if (!user) {
       await ctx.answerCallbackQuery({
-        text: '❌ User tidak ditemukan',
+        text: '⚠️ User not found',
         show_alert: true,
       });
       return;
     }
 
-    const roleEmoji = user.role === 'owner' ? '👑' : '👤';
-    const roleName = user.role === 'owner' ? 'Pemilik' : 'Pengguna';
-    const status = user.isActive ? '✅ Aktif' : '❌ Tidak Aktif';
-    const phone = user.whatsappPhone || '🚫 Belum diatur';
-    const paired = user.whatsappPaired ? '✅ Paired' : '❌ Unpaired';
+    const roleName = user.role === 'owner' ? 'Owner' : 'User';
+    const status = user.isActive ? 'Active' : 'Inactive';
+    const phone = user.whatsappPhone || 'Not set';
+    const paired = user.whatsappPaired ? 'Paired' : 'Not paired';
 
-    const message = `${roleEmoji} *Informasi User*\n` +
+    const message = '*User Information*\n' +
       '━━━━━━━━━━━━━━━━━━\n\n' +
-      `🆔 *User ID*\n\`${user.userId}\`\n\n` +
-      `🏷️ *Peran*\n${roleEmoji} ${roleName}\n\n` +
-      `🟢 *Status*\n${status}\n\n` +
-      `📱 *Nomor Telepon*\n${phone}\n\n` +
-      `💬 *WhatsApp*\n${paired}\n\n` +
+      `*User ID*\n\`${user.userId}\`\n\n` +
+      `*Role*\n${roleName}\n\n` +
+      `*Status*\n${status}\n\n` +
+      `*Phone Number*\n${phone}\n\n` +
+      `*WhatsApp*\n${paired}\n\n` +
       '━━━━━━━━━━━━━━━━━━';
 
     const backButton = new InlineKeyboard().text(
-      '🔙 Kembali ke Daftar',
+      'Back to List',
       'back_to_users',
     );
 
@@ -98,7 +96,7 @@ export const handleViewUserDetail = async (ctx) => {
   } catch (error) {
     log.error({ error }, 'Error in view user detail');
     await ctx.answerCallbackQuery({
-      text: '❌ Gagal memuat detail user',
+      text: 'Failed to load user details',
       show_alert: true,
     });
   }
@@ -124,14 +122,15 @@ export const handleAdminStatus = async (ctx) => {
     const ownerUsers = users.filter((u) => u.role === 'owner').length;
     const regularUsers = users.filter((u) => u.role === 'user').length;
 
-    const message = '📊 Status Sistem\n\n' +
-      `Total User: ${users.length}\n` +
-      `User Aktif: ${activeUsers}\n` +
-      `User Tersambung: ${pairedUsers}\n\n` +
-      `👑 Pemilik: ${ownerUsers}\n` +
-      `👤 Pengguna: ${regularUsers}`;
+    const message = '*System Status*\n\n' +
+      `Total Users: ${users.length}\n` +
+      `Active Users: ${activeUsers}\n` +
+      `Connected Users: ${pairedUsers}\n\n` +
+      `Owners: ${ownerUsers}\n` +
+      `Regular Users: ${regularUsers}`;
 
     await ctx.reply(message, {
+      parse_mode: 'Markdown',
       reply_markup: mainAdminMenu(),
     });
   } catch (error) {
@@ -142,7 +141,7 @@ export const handleAdminStatus = async (ctx) => {
 // -- handleAdminMainMenu --
 export const handleAdminMainMenu = async (ctx) => {
   try {
-    const message = '🛠️ Panel Admin\n\nPilih aksi:';
+    const message = '🛠️ Admin Panel\n\nSelect action:';
     await ctx.reply(message, {
       reply_markup: mainAdminMenu(),
     });
@@ -154,12 +153,12 @@ export const handleAdminMainMenu = async (ctx) => {
 // -- handleAdminAddUserStart --
 export const handleAdminAddUserStart = async (ctx) => {
   try {
-    const message = '*➕ Tambah User Baru*\n\n' +
-      'Kirim ID user:\n' +
-      'Contoh: `123456789`\n\n' +
-      '*Pilihan Peran:*\n' +
-      '👤 Pengguna - User biasa\n' +
-      '👑 Pemilik - Akses admin penuh';
+    const message = '*Add New User*\n\n' +
+      'Send ID user:\n' +
+      'Example: `123456789`\n\n' +
+      '*Role Options:*\n' +
+      'User - Regular user access\n' +
+      'Owner - Full admin access';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -176,13 +175,13 @@ export const handleAdminAddUserStart = async (ctx) => {
 // -- handleRemoveUserStart --
 export const handleRemoveUserStart = async (ctx) => {
   try {
-    const message = '*🗑️ Hapus User*\n\n' +
-      'Kirim ID user yang akan dihapus:\n' +
-      'Contoh: `123456789`\n\n' +
-      '*⚠️ Peringatan:*\n' +
-      '• Ini akan menghapus user secara permanen\n' +
-      '• Koneksi WhatsApp akan diputuskan\n' +
-      '• Data user tidak dapat dipulihkan';
+    const message = '*Remove User*\n\n' +
+      'Send the user ID to remove:\n' +
+      'Example: `123456789`\n\n' +
+      '*Warning:*\n' +
+      '• This will permanently delete the user\n' +
+      '• WhatsApp connection will be disconnected\n' +
+      '• User data cannot be recovered';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',

@@ -3,12 +3,12 @@ import { Keyboard } from 'grammy';
 // -- ownerWAMenu --
 export const ownerWAMenu = () => {
   return new Keyboard()
-    .text('📱 Pair WhatsApp')
-    .text('❌ Disconnect')
+    .text('Pair WhatsApp')
+    .text('Disconnect')
     .row()
-    .text('🔍 Cek Bio')
-    .text('📊 Status')
+    .text('Check Bio')
+    .text('Status')
     .row()
-    .text('🔙 Kembali')
+    .text('Back')
     .resized();
 };

@@ -1,6 +1,11 @@
 import { createLogger } from '../logger.js';
 import { getCachedBio, setCachedBio } from './cache.js';
 import { getSocketLimiter } from './socket-limiter.js';
+import {
+  detectBusinessTypeEnhanced,
+  extractBusinessInfo,
+  detectWebsites,
+} from './bio-checker.js';
 
 const log = createLogger('WhatsAppUtils');
 
@@ -10,7 +15,9 @@ export const formatPhoneNumber = (phone) => {
   if (formatted.length === 0) {
     return formatted;
   }
-  if (!formatted.startsWith('62') && formatted.length > 9 && formatted.startsWith('8')) {
+  if (!formatted.startsWith('62') &&
+      formatted.length > 9 &&
+      formatted.startsWith('8')) {
     formatted = '62' + formatted.substring(1);
   }
   return formatted;
@@ -36,85 +43,74 @@ export const handleConnectionError = (error, lastDisconnect) => {
 // -- formatBioDate --
 export const formatBioDate = (timestamp) => {
   if (!timestamp || timestamp === '1970-01-01T00:00:00.000Z') {
-    return 'Gak diketahui';
+    return 'Unknown';
   }
   const date = new Date(timestamp);
-  return date.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
+  return date.toLocaleString('id-ID', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  });
 };
 
-// -- detectBusinessType --
-export const detectBusinessType = async (socket, jid, bioText = '') => {
+// -- fetchStatusUsingUSync --
+const fetchStatusUsingUSync = async (socket, jid) => {
   try {
-    let accountType = 'Akun Pribadi';
-    let isBusiness = false;
-    let isVerified = null;
+    log.info(`[USYNC-STATUS] Fetching status for ${jid} using USyncQuery`);
 
-    const profile = await socket.getBusinessProfile(jid).catch(() => null);
+    const { USyncQuery, USyncUser } = await import(
+      '@whiskeysockets/baileys/lib/WAUSync/index.js'
+    );
 
-    if (profile?.verifiedName) {
-      accountType = 'Official Business';
-      isBusiness = true;
-      isVerified = profile.verifiedName;
-      log.info(`[BUSINESS] ${jid}: Official Business (${isVerified})`);
-      return { accountType, isBusiness, isVerified };
+    const usyncQuery = new USyncQuery()
+      .withContext('interactive')
+      .withStatusProtocol();
+
+    const phone = `+${jid.replace('+', '').split('@')[0].split(':')[0]}`;
+    usyncQuery.withUser(new USyncUser().withPhone(phone));
+
+    log.info(`[USYNC-STATUS] Executing USyncQuery for ${jid}`);
+    const results = await socket.executeUSyncQuery(usyncQuery);
+
+    log.info(`[USYNC-STATUS] Raw results: ${JSON.stringify(results)}`);
+
+    if (results && results.list && results.list.length > 0) {
+      const statusData = results.list[0]?.status;
+
+      log.info(`[USYNC-STATUS] Status data: ${JSON.stringify(statusData)}`);
+
+      if (statusData) {
+        const bioText = statusData.status;
+        const setAt = statusData.setAt;
+
+        log.info(`[USYNC-STATUS] Found bio: "${bioText}" setAt: ${setAt}`);
+
+        return {
+          status: bioText || undefined,
+          setAt: setAt || new Date(0),
+        };
+      }
     }
 
-    if (profile?.businessName || profile?.wid) {
-      accountType = 'WhatsApp Business';
-      isBusiness = true;
-      log.info(`[BUSINESS] ${jid}: WhatsApp Business`);
-      return { accountType, isBusiness, isVerified };
-    }
-
-    const businessBioPatterns = [
-      'Hello. I\'m using WhatsApp Business.',
-      'Hello. I?m using WhatsApp Business.',
-      'Hola. Estoy usando WhatsApp Business.',
-      'WhatsApp Business',
-    ];
-
-    if (businessBioPatterns.some(p => bioText.includes(p))) {
-      accountType = 'WhatsApp Business';
-      isBusiness = true;
-      log.info(`[BUSINESS] ${jid}: WhatsApp Business (detected from bio)`);
-      return { accountType, isBusiness, isVerified };
-    }
-
-    log.info(`[BUSINESS] ${jid}: Personal account`);
-    return { accountType, isBusiness, isVerified };
+    log.warn(`[USYNC-STATUS] No status found for ${jid}`);
+    return { status: undefined, setAt: new Date(0) };
   } catch (error) {
-    log.error({ error }, `Error detecting business type for ${jid}`);
-    return { accountType: 'Akun Pribadi', isBusiness: false, isVerified: null };
+    log.error({ error }, `[USYNC-STATUS] Error fetching status for ${jid}`);
+    throw error;
   }
 };
 
-// -- checkIfRegistered --
-export const checkIfRegistered = async (socket, phoneNumber) => {
+// -- checkIfRegisteredParallel --
+export const checkIfRegisteredParallel = async (socket, jid) => {
   try {
-    let jid = phoneNumber;
-    if (!jid.includes('@')) {
-      const cleaned = jid.replace(/\D/g, '');
-      jid = `${cleaned}@s.whatsapp.net`;
+    const [registrationResult] = await socket.onWhatsApp(jid);
+
+    if (registrationResult && registrationResult.exists) {
+      return { exists: true };
     }
 
-    log.info(`[REGISTER] Checking registration for ${phoneNumber}`);
-    const [result] = await socket.onWhatsApp(jid);
-
-    if (result && result.exists) {
-      log.info(`[REGISTER] ${phoneNumber} is registered`);
-
-      const businessInfo = await detectBusinessType(socket, jid);
-
-      return {
-        exists: true,
-        ...businessInfo,
-      };
-    }
-
-    log.info(`[REGISTER] ${phoneNumber} is NOT registered`);
     return { exists: false };
   } catch (error) {
-    log.error({ error }, `Error checking registration for ${phoneNumber}`);
+    log.error({ error }, `Error checking registration for ${jid}`);
     return null;
   }
 };
@@ -122,43 +118,65 @@ export const checkIfRegistered = async (socket, phoneNumber) => {
 // -- detectBioCategory --
 export const detectBioCategory = (statusResponse, isRegistered, phoneNumber) => {
   try {
+    log.info(`[DETECT-DEBUG] ${phoneNumber}: Full statusResponse = ${JSON.stringify(statusResponse)}`);
+    log.info(`[DETECT-DEBUG] ${phoneNumber}: isRegistered = ${isRegistered}`);
+    log.info(`[DETECT-DEBUG] ${phoneNumber}: statusResponse type = ${typeof statusResponse}`);
+
     if (isRegistered === false) {
       log.info(`[DETECT] ${phoneNumber}: Not registered on WhatsApp`);
       return {
         category: 'unregistered',
-        status: 'Tidak Terdaftar',
-        detail: 'Nomor tidak terdaftar di WhatsApp',
+        status: 'Unregistered',
+        detail: 'Number not registered on WhatsApp',
       };
     }
 
-    if (!statusResponse || statusResponse.length === 0) {
-      log.info(`[DETECT] ${phoneNumber}: Registered but no bio data`);
+    if (!statusResponse) {
+      log.info(`[DETECT] ${phoneNumber}: statusResponse is null/undefined - No bio`);
       return {
         category: 'noBio',
-        status: 'Tidak Ada Bio',
-        detail: 'Akun terdaftar tapi tidak ada bio',
+        status: 'No Bio',
+        detail: 'Account registered but has no bio',
       };
     }
 
-    const bioData = statusResponse[0];
-    const bioText = bioData?.status?.status;
-    const bioSetAt = bioData?.status?.setAt;
+    let bioText = null;
+    let bioSetAt = null;
 
-    if (!bioText || bioText.trim() === '') {
+    if (typeof statusResponse === 'object' && statusResponse !== null) {
+      if (Array.isArray(statusResponse) && statusResponse.length > 0) {
+        bioText = statusResponse[0]?.status?.status || statusResponse[0]?.status;
+        bioSetAt = statusResponse[0]?.status?.setAt || statusResponse[0]?.setAt;
+      } else if (statusResponse.status !== undefined) {
+        if (typeof statusResponse.status === 'string') {
+          bioText = statusResponse.status;
+        } else if (typeof statusResponse.status === 'object') {
+          bioText = statusResponse.status.status || statusResponse.status;
+        }
+        bioSetAt = statusResponse.status?.setAt || statusResponse.setAt;
+      } else if (typeof statusResponse === 'string') {
+        bioText = statusResponse;
+      }
+    }
+
+    log.info(`[DETECT-DEBUG] ${phoneNumber}: Extracted bioText = "${bioText}"`);
+    log.info(`[DETECT-DEBUG] ${phoneNumber}: Extracted bioSetAt = ${bioSetAt}`);
+
+    if (!bioText || (typeof bioText === 'string' && bioText.trim() === '')) {
       log.info(`[DETECT] ${phoneNumber}: Registered but bio is empty`);
       return {
         category: 'noBio',
-        status: 'Tidak Ada Bio',
-        detail: 'Akun terdaftar tapi tidak ada bio',
+        status: 'No Bio',
+        detail: 'Account registered but has no bio',
         setAt: formatBioDate(bioSetAt),
       };
     }
 
-    log.info(`[DETECT] ${phoneNumber}: Has bio text`);
+    log.info(`[DETECT] ${phoneNumber}: Has bio text: "${bioText}"`);
     return {
       category: 'hasBio',
-      status: 'Ada Bio',
-      detail: 'Akun terdaftar dan punya bio',
+      status: 'Has Bio',
+      detail: 'Account registered and has bio',
       bioText,
       setAt: formatBioDate(bioSetAt),
     };
@@ -167,16 +185,21 @@ export const detectBioCategory = (statusResponse, isRegistered, phoneNumber) => 
     return {
       category: 'error',
       status: 'Error',
-      detail: error?.message || 'Gagal deteksi status',
+      detail: error?.message || 'Failed to detect status',
     };
   }
 };
 
 // -- fetchBioForUser --
-export const fetchBioForUser = async (socket, phoneNumber, useCache = true, userId = null) => {
+export const fetchBioForUser = async (
+  socket,
+  phoneNumber,
+  useCache = true,
+  userId = null,
+) => {
   try {
     if (!socket) {
-      throw new Error('Socket gak connect');
+      throw new Error('Socket disconnected');
     }
 
     if (useCache) {
@@ -192,60 +215,75 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
       jid = `${cleaned}@s.whatsapp.net`;
     }
 
-    log.info(`[FETCH] Starting bio fetch for ${phoneNumber}`);
+    log.info(`[FETCH-OPT] Starting parallel fetch for ${phoneNumber}`);
 
-    let registrationInfo = null;
-    try {
-      registrationInfo = await checkIfRegistered(socket, phoneNumber);
-    } catch (regError) {
-      log.warn({ error: regError }, `Failed to check registration for ${phoneNumber}`);
+    let registrationInfo;
+    let statusResponse;
+    let businessProfile;
+
+    if (userId) {
+      const limiter = getSocketLimiter(userId);
+      [registrationInfo, statusResponse, businessProfile] = await limiter.run(
+        async () => {
+          return Promise.all([
+            checkIfRegisteredParallel(socket, jid),
+            fetchStatusUsingUSync(socket, jid).catch((err) => {
+              log.warn(`[FETCH-OPT] fetchStatusUsingUSync error: ${err.message}`);
+              return socket.fetchStatus(jid).catch((err2) => {
+                log.warn(`[FETCH-OPT] fetchStatus fallback error: ${err2.message}`);
+                return null;
+              });
+            }),
+            socket.getBusinessProfile(jid).catch(() => null),
+          ]);
+        },
+      );
+    } else {
+      [registrationInfo, statusResponse, businessProfile] = await Promise.all([
+        checkIfRegisteredParallel(socket, jid),
+        fetchStatusUsingUSync(socket, jid).catch((err) => {
+          log.warn(`[FETCH-OPT] fetchStatusUsingUSync error: ${err.message}`);
+          return socket.fetchStatus(jid).catch((err2) => {
+            log.warn(`[FETCH-OPT] fetchStatus fallback error: ${err2.message}`);
+            return null;
+          });
+        }),
+        socket.getBusinessProfile(jid).catch(() => null),
+      ]);
     }
 
+    log.info(`[FETCH-OPT] Parallel fetch completed for ${phoneNumber}`);
+    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: registrationInfo = ${JSON.stringify(registrationInfo)}`);
+    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: statusResponse RAW = ${JSON.stringify(statusResponse)}`);
+    log.info(`[FETCH-OPT-DEBUG] ${phoneNumber}: businessProfile exists = ${!!businessProfile}`);
+
     if (registrationInfo && !registrationInfo.exists) {
-      log.info(`[FETCH] ${phoneNumber} is not registered, returning unregistered`);
+      log.info(`[FETCH-OPT] ${phoneNumber} is not registered`);
       const result = {
         phone: phoneNumber,
         success: false,
         category: 'unregistered',
-        error: 'Nomor tidak terdaftar',
+        error: 'Number not registered',
       };
       setCachedBio(phoneNumber, result, 300);
       return result;
     }
 
-    log.info(`[FETCH] Fetching status for JID: ${jid}`);
-
-    let statusResponse;
-    if (userId) {
-      const limiter = getSocketLimiter(userId);
-      statusResponse = await limiter.run(async () => {
-        return await socket.fetchStatus(jid);
-      });
-    } else {
-      statusResponse = await socket.fetchStatus(jid);
-    }
-
-    log.info(`[FETCH] Status response for ${phoneNumber}: ${JSON.stringify(statusResponse)}`);
-
-    const bioText = statusResponse?.[0]?.status?.status || '';
     const categoryInfo = detectBioCategory(
       statusResponse,
       registrationInfo?.exists !== false,
       phoneNumber,
     );
 
-    let businessInfo = registrationInfo || {
-      accountType: 'Akun Pribadi',
-      isBusiness: false,
-      isVerified: null,
-    };
+    const bioText = categoryInfo.bioText || '';
 
-    if (bioText && !businessInfo.isBusiness) {
-      const bioBusinessInfo = await detectBusinessType(socket, jid, bioText);
-      if (bioBusinessInfo.isBusiness) {
-        businessInfo = bioBusinessInfo;
-      }
-    }
+    const businessInfo = await detectBusinessTypeEnhanced(socket, jid, bioText);
+    const extractedBusinessInfo = extractBusinessInfo(businessProfile);
+
+    const websites = businessInfo.isBusiness
+      ? detectWebsites(bioText, businessProfile)
+      : [];
+    const email = businessInfo.isBusiness ? extractedBusinessInfo.email : null;
 
     if (categoryInfo.category === 'hasBio') {
       const result = {
@@ -256,7 +294,8 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
         category: 'hasBio',
         accountType: businessInfo.accountType,
         isBusiness: businessInfo.isBusiness,
-        isVerified: businessInfo.isVerified,
+        websites,
+        email,
       };
       setCachedBio(phoneNumber, result, 3600);
       return result;
@@ -267,10 +306,11 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
         phone: phoneNumber,
         success: false,
         category: 'noBio',
-        error: 'User gak punya bio',
+        error: 'User has no bio',
         accountType: businessInfo.accountType,
         isBusiness: businessInfo.isBusiness,
-        isVerified: businessInfo.isVerified,
+        websites,
+        email,
       };
       setCachedBio(phoneNumber, result, 600);
       return result;
@@ -281,7 +321,7 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
         phone: phoneNumber,
         success: false,
         category: 'unregistered',
-        error: 'Nomor tidak terdaftar',
+        error: 'Number not registered',
       };
       setCachedBio(phoneNumber, result, 300);
       return result;
@@ -298,11 +338,11 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
     log.error({ error }, `Failed to fetch bio for ${phoneNumber}`);
 
     let category = 'error';
-    let errorMsg = error?.message || 'Gagal ambil bio';
+    let errorMsg = error?.message || 'Failed to fetch bio';
 
     if (error?.message?.includes('rate') || error?.message?.includes('429')) {
       category = 'rateLimit';
-      errorMsg = 'Rate limit - coba lagi nanti';
+      errorMsg = 'Rate limit - try again later';
     }
 
     const errorResult = {
@@ -319,3 +359,5 @@ export const fetchBioForUser = async (socket, phoneNumber, useCache = true, user
     return errorResult;
   }
 };
+
+export const fetchBioForUserOptimized = fetchBioForUser;

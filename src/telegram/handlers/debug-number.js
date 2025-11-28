@@ -73,22 +73,22 @@ export const handleDebugCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (!user || user.role !== 'owner') {
-      await ctx.reply('❌ Command ini hanya untuk owner.');
+      await ctx.reply('⚠️ Command ini only to owner.');
       return;
     }
 
     log.info(`[DEBUG] Owner ${userId} requested debug number`);
 
     if (!user.whatsappPaired) {
-      await ctx.reply('❌ Lo perlu pair WhatsApp dulu. Tekan tombol 📱 Pair WhatsApp.');
+      await ctx.reply('⚠️ You need to pair WhatsApp first. Tekan tombol 📱 Pair WhatsApp.');
       return;
     }
 
     const msg =
       '🔍 *Debug Number*\n\n' +
       '*Eksplorasi Full Baileys API*\n\n' +
-      'Kirim 1 nomor telepon untuk debug:\n' +
-      'Contoh: `6281234567890`\n\n' +
+      'Send 1 phone number to debug:\n' +
+      'Example: `6281234567890`\n\n' +
       '💡 *Output:*\n' +
       '• onWhatsApp()\n' +
       '• getBusinessProfile()\n' +
@@ -120,21 +120,21 @@ export const handleDebugPhoneInput = async (ctx) => {
     const socket = getUserSocket(userId);
 
     if (!socket || !socket.user) {
-      await ctx.reply('❌ Koneksi WhatsApp putus. Pair lagi dong.');
+      await ctx.reply('⚠️ Koneksi WhatsApp disconnected. Pair again..');
       ctx.session.waitingForDebugPhone = false;
       return;
     }
 
     const input = ctx.message?.text?.trim();
     if (!input || !/^\d+$/.test(input)) {
-      await ctx.reply('❌ Kirim nomor telepon yang valid (hanya angka).', {
+      await ctx.reply('⚠️ Send phone number valid (only digits).', {
         reply_markup: cancelKeyboard(),
       });
       return;
     }
 
     const phoneNumber = formatPhoneNumber(input);
-    await ctx.reply(`⏳ Fetching Baileys API data untuk ${phoneNumber}...`);
+    await ctx.reply(`Processing: Fetching Baileys API data to ${phoneNumber}...`);
 
     log.info(`[DEBUG] Fetching all info for ${phoneNumber}`);
     const info = await fetchAllBaileysInfo(socket, phoneNumber);
@@ -153,7 +153,7 @@ export const handleDebugPhoneInput = async (ctx) => {
       await ctx.replyWithDocument(
         new InputFile(buffer, `debug_${phoneNumber}_${Date.now()}.json`),
         {
-          caption: `🔍 *Debug Result untuk ${phoneNumber}*`,
+          caption: `🔍 *Debug Result to ${phoneNumber}*`,
           parse_mode: 'Markdown',
           reply_markup: ownerMainMenu(),
         },
@@ -164,7 +164,7 @@ export const handleDebugPhoneInput = async (ctx) => {
     ctx.session.waitingForDebugPhone = false;
   } catch (error) {
     log.error({ error }, 'Error handling debug phone input');
-    await ctx.reply(`❌ Error: ${error.message || 'Gagal debug nomor'}`);
+    await ctx.reply(`⚠️ Error: ${error.message || 'Failed to debug number'}`);
     ctx.session.waitingForDebugPhone = false;
   }
 };

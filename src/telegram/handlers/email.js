@@ -17,8 +17,8 @@ const log = createLogger('EmailHandler');
 // -- handleOwnerEmailMenuStart --
 export const handleOwnerEmailMenuStart = async (ctx) => {
   try {
-    const message = '📧 *Manajemen Email*\n\n' +
-      'Pilih aksi:';
+    const message = '📧 *Email Management*\n\n' +
+      'Choose an action:';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -26,7 +26,7 @@ export const handleOwnerEmailMenuStart = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error in owner email menu');
-    await ctx.reply('❌ Gagal membuka menu email', {
+    await ctx.reply('❌ Failed to open menu email', {
       reply_markup: ownerMainMenu(),
     });
   }
@@ -39,9 +39,9 @@ export const handleOwnerViewTemplate = async (ctx) => {
 
     if (!template) {
       await ctx.reply(
-        '❌ *Template Belum Diatur*\n\n' +
-        '⚠️ Template email belum dikonfigurasi.\n\n' +
-        '📝 Gunakan tombol *Atur Template* untuk membuat.',
+        '*Template Not Set Yet*\n\n' +
+        '⚠️ Template email not configured yet.\n\n' +
+        '📝 Use *Set Template* button to create.',
         {
           parse_mode: 'Markdown',
           reply_markup: ownerEmailMenu(),
@@ -50,14 +50,14 @@ export const handleOwnerViewTemplate = async (ctx) => {
       return;
     }
 
-    const message = '👁️ *Template Email Saat Ini*\n\n' +
+    const message = '👁️ *Current Email Template*\n\n' +
       '```\n' +
       template +
       '\n```\n\n' +
-      '*Placeholder Tersedia:*\n' +
-      '• `{nama}` - Nama user\n' +
-      '• `{nomor}` - Nomor telepon\n\n' +
-      '💡 Gunakan *Atur Template* untuk mengubah';
+      '*Available Placeholders:*\n' +
+      '• `{nama}` - User name\n' +
+      '• `{nomor}` - Phone number\n\n' +
+      '💡 Use *Set Template* to change';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -65,7 +65,7 @@ export const handleOwnerViewTemplate = async (ctx) => {
     });
   } catch (error) {
     log.error({ error }, 'Error viewing template');
-    await ctx.reply('❌ Gagal memuat template', {
+    await ctx.reply('❌ Failed to load template', {
       reply_markup: ownerEmailMenu(),
     });
   }
@@ -78,8 +78,8 @@ export const handleOwnerDeleteTemplate = async (ctx) => {
 
     if (!template) {
       await ctx.reply(
-        '❌ *Tidak Ada Template untuk Dihapus*\n\n' +
-        'Template email belum diatur.',
+        '❌ *No Template to Delete*\n\n' +
+        'Template email not set yet.',
         {
           parse_mode: 'Markdown',
           reply_markup: ownerEmailMenu(),
@@ -92,9 +92,9 @@ export const handleOwnerDeleteTemplate = async (ctx) => {
     await redis.del('email:template');
 
     await ctx.reply(
-      '✅ *Template Berhasil Dihapus!*\n\n' +
-      '🗑️ Template email telah dihapus.\n\n' +
-      '⚠️ User tidak dapat menggunakan Fix Nomor sampai kamu mengatur template baru.',
+      '*Template Successfully Deleted!*\n\n' +
+      '🗑️ Template email has been deleted.\n\n' +
+      '⚠️ User cannot use Fix Number until you set new template.',
       {
         parse_mode: 'Markdown',
         reply_markup: ownerEmailMenu(),
@@ -104,7 +104,7 @@ export const handleOwnerDeleteTemplate = async (ctx) => {
     log.info('Email template deleted by owner');
   } catch (error) {
     log.error({ error }, 'Error deleting template');
-    await ctx.reply('❌ Gagal menghapus template', {
+    await ctx.reply('❌ Failed to delete template', {
       reply_markup: ownerEmailMenu(),
     });
   }
@@ -114,22 +114,22 @@ export const handleOwnerDeleteTemplate = async (ctx) => {
 export const handleOwnerSetTemplateStart = async (ctx) => {
   try {
     const currentTemplate = await getEmailTemplate();
-    const templatePreview = currentTemplate || 'Belum ada template';
+    const templatePreview = currentTemplate || 'No template set';
 
-    const message = '📧 *Konfigurasi Template Email*\n\n' +
-      '*Template Saat Ini:*\n' +
+    const message = '📧 *Email Template Configuration*\n\n' +
+      '*Current Template:*\n' +
       '```\n' +
       templatePreview +
       '\n```\n\n' +
-      '*Placeholder Tersedia:*\n' +
-      '• `{nama}` - Nama user\n' +
-      '• `{nomor}` - Nomor telepon\n\n' +
-      '*Contoh:*\n' +
+      '*Available Placeholders:*\n' +
+      '• `{nama}` - User name\n' +
+      '• `{nomor}` - Phone number\n\n' +
+      '*Example:*\n' +
       '```\n' +
-      'Halo, nama saya {nama}.\n' +
-      'Saya butuh bantuan dengan nomor: {nomor}\n' +
+      'Hello, my name is {nama}.\n' +
+      'I need help with number: {nomor}\n' +
       '```\n\n' +
-      '📝 Kirim teks template kamu sekarang:';
+      '📝 Send your template text now:';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -139,7 +139,7 @@ export const handleOwnerSetTemplateStart = async (ctx) => {
     ctx.session.settingEmailTemplate = true;
   } catch (error) {
     log.error({ error }, 'Error in owner email template start');
-    await ctx.reply('❌ Gagal memulai pengaturan template email', {
+    await ctx.reply('❌ Failed to start setting email template', {
       reply_markup: ownerMainMenu(),
     });
   }
@@ -150,11 +150,11 @@ export const handleOwnerEmailTemplateInput = async (ctx, text) => {
   try {
     if (!text.includes('{nama}') || !text.includes('{nomor}')) {
       await ctx.reply(
-        '❌ *Template Tidak Valid*\n\n' +
-        'Template harus mengandung keduanya:\n' +
+        '❌ *Invalid Template*\n\n' +
+        'Template must contain both:\n' +
         '• Placeholder `{nama}`\n' +
         '• Placeholder `{nomor}`\n\n' +
-        'Silakan kirim lagi:',
+        'Please resend:',
         { parse_mode: 'Markdown' },
       );
       ctx.session.settingEmailTemplate = false;
@@ -165,12 +165,12 @@ export const handleOwnerEmailTemplateInput = async (ctx, text) => {
     ctx.session.settingEmailTemplate = false;
 
     await ctx.reply(
-      '✅ *Template Email Diperbarui!*\n\n' +
-      '*Template Baru:*\n' +
+      '*Email Template Updated!*\n\n' +
+      '*New Template:*\n' +
       '```\n' +
       text +
       '\n```\n\n' +
-      '💡 User sekarang dapat menggunakan fitur Fix Nomor',
+      '💡 User can now use Fix Number feature',
       {
         parse_mode: 'Markdown',
         reply_markup: ownerMainMenu(),
@@ -180,7 +180,7 @@ export const handleOwnerEmailTemplateInput = async (ctx, text) => {
     log.info('Email template updated by owner');
   } catch (error) {
     log.error({ error }, 'Error in owner email template input');
-    await ctx.reply('❌ Gagal memperbarui template email', {
+    await ctx.reply('❌ Failed to update email template', {
       reply_markup: ownerMainMenu(),
     });
   }
@@ -196,24 +196,24 @@ export const handleUserSetupEmailStart = async (ctx) => {
 
     if (existingEmail) {
       message = '📧 *Setup Email*\n\n' +
-        '✅ *Konfigurasi Sekarang:*\n' +
+        '*Current Configuration:*\n' +
         `Email: \`${existingEmail.email}\`\n` +
-        `Nama: \`${existingEmail.nama}\`\n\n` +
-        '🔄 *Mau update? Mulai dari awal ya.*\n\n' +
-        '📧 *Langkah 1/3: Kirim email Gmail kamu*\n\n' +
+        `Name: \`${existingEmail.nama}\`\n\n` +
+        '🔄 *Want to update? Start from the beginning.*\n\n' +
+        '📧 *Step 1/3: Send your Gmail address*\n\n' +
         '*Contoh:*\n' +
-        '`emailku@gmail.com`';
+        '`yourname@gmail.com`';
     } else {
-      message = '📧 *Setup Email - Langkah 1/3*\n\n' +
-        '📧 Kirim *email Gmail kamu*:\n\n' +
+      message = '📧 *Setup Email - Step 1/3*\n\n' +
+        '📧 Send *your Gmail address*:\n\n' +
         '*Contoh:*\n' +
-        '`emailku@gmail.com`\n\n' +
-        '*⚠️ Cara dapetin App Password (nanti):*\n' +
+        '`yourname@gmail.com`\n\n' +
+        '*⚠️ How to get App Password (later):*\n' +
         '1. Google Account → Security\n' +
-        '2. Aktifkan 2-Step Verification → App passwords\n' +
+        '2. Enable 2-Step Verification → App passwords\n' +
         '3. Generate new App Password → https://myaccount.google.com/apppasswords"\n' +
-        '4. Copy password 16 karakter\n\n' +
-        '*🔒 Password kamu bakal dienkripsi aman*';
+        '4. Copy 16-character password\n\n' +
+        '*🔒 Your password will be securely encrypted*';
     }
 
     await ctx.reply(message, {
@@ -230,7 +230,7 @@ export const handleUserSetupEmailStart = async (ctx) => {
     log.error({ error }, 'Error in user setup email start');
     const user = await getUser(ctx.from?.id);
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
-    await ctx.reply('❌ Gagal mulai setup email', {
+    await ctx.reply('❌ Failed to start email setup', {
       reply_markup: menu,
     });
   }
@@ -248,7 +248,7 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
 
     if (ctx.session.setupEmail.step === 'email') {
       if (!input.includes('@gmail.com')) {
-        await ctx.reply('❌ Cuma support Gmail aja. Kirim email Gmail yang bener ya.');
+        await ctx.reply('❌ Only Gmail is supported. Please send a valid Gmail address.');
         return;
       }
 
@@ -256,12 +256,12 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
       ctx.session.setupEmail.step = 'password';
 
       await ctx.reply(
-        '✅ Email udah disimpan!\n\n' +
-        '📧 *Langkah 2/3: Kirim App Password kamu*\n\n' +
-        'Format: 16 karakter (spasi boleh)\n\n' +
-        '*Contoh:*\n' +
+        'Email saved!\n\n' +
+        '📧 *Step 2/3: Send your App Password*\n\n' +
+        'Format: 16 characters (spaces allowed)\n\n' +
+        '*Example:*\n' +
         '`abcd efgh ijkl mnop`\n\n' +
-        '💡 Dapetin dari: Google Account → Security → https://myaccount.google.com/apppasswords',
+        '💡 Get from: Google Account → Security → https://myaccount.google.com/apppasswords',
         { parse_mode: 'Markdown' },
       );
       return;
@@ -271,7 +271,7 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
       const cleanPassword = input.replace(/\s/g, '');
 
       if (cleanPassword.length < 10) {
-        await ctx.reply('❌ App Password terlalu pendek (min 10 karakter). Coba lagi ya.');
+        await ctx.reply('❌ App Password too short (min 10 characters). Try again.');
         return;
       }
 
@@ -279,11 +279,11 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
       ctx.session.setupEmail.step = 'nama';
 
       await ctx.reply(
-        '✅ Password udah disimpan!\n\n' +
-        '👤 *Langkah 3/3: Kirim nama kamu*\n\n' +
-        'Ini bakal dipake di template email.\n\n' +
-        '*Contoh:*\n' +
-        '`Budi Santoso`',
+        'Password saved!\n\n' +
+        '👤 *Step 3/3: Send your name*\n\n' +
+        'This will be used in email template.\n\n' +
+        '*Example:*\n' +
+        '`John Doe`',
         { parse_mode: 'Markdown' },
       );
       return;
@@ -291,14 +291,14 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
 
     if (ctx.session.setupEmail.step === 'nama') {
       if (input.length < 2) {
-        await ctx.reply('❌ Nama terlalu pendek (min 2 karakter). Coba lagi ya.');
+        await ctx.reply('❌ Name too short (min 2 characters). Try again.');
         return;
       }
 
       const { email, password } = ctx.session.setupEmail;
       const nama = input;
 
-      await ctx.reply('⏳ Ngecek kredensial Gmail...');
+      await ctx.reply('⏳ Checking Gmail credentials...');
 
       const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -316,11 +316,11 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
       const user = await getUser(userId);
 
       await ctx.reply(
-        '✅ *Setup Email Selesai!*\n\n' +
+        '*Email Setup Complete!*\n\n' +
         `📧 Email: \`${email}\`\n` +
-        `👤 Nama: \`${nama}\`\n\n` +
-        '🔧 Sekarang bisa pake *Fix Nomor*!\n' +
-        '🔒 App Password kamu udah aman terenkripsi.',
+        `👤 Name: \`${nama}\`\n\n` +
+        '🔧 Now you can use *Fix Number*!\n' +
+        '🔒 App Password is securely encrypted.',
         {
           parse_mode: 'Markdown',
           reply_markup: user?.role === 'owner' ? ownerMainMenu() : userMainMenu(),
@@ -339,19 +339,19 @@ export const handleUserSetupEmailInput = async (ctx, text) => {
 
     if (error.code === 'EAUTH') {
       await ctx.reply(
-        '❌ *Autentikasi Gagal*\n\n' +
-        'Kemungkinan:\n' +
-        '• Email salah\n' +
-        '• App Password salah\n' +
-        '• 2-Step Verification belum aktif\n\n' +
-        'Coba lagi pake tombol 📧 *Atur Email*.',
+        '❌ *Authentication Failed*\n\n' +
+        'Possible reasons:\n' +
+        '• Incorrect Email\n' +
+        '• Incorrect App Password\n' +
+        '• 2-Step Verification not active yet\n\n' +
+        'Try again using 📧 *Email Settings* button.',
         {
           parse_mode: 'Markdown',
           reply_markup: menu,
         },
       );
     } else {
-      await ctx.reply('❌ Gagal setup email. Coba lagi ya.', {
+      await ctx.reply('❌ Failed to setup email. Try again.', {
         reply_markup: menu,
       });
     }
@@ -366,8 +366,8 @@ export const handleUserFixNomorStart = async (ctx) => {
     const cooldownRemaining = await getCooldownRemainingTime(userId, 'fixnomor');
     if (cooldownRemaining > 0) {
       await ctx.reply(
-        '⏳ *Cooldown Aktif*\n\n' +
-        `Tunggu ${cooldownRemaining} detik lagi sebelum fix nomor lagi.`,
+        '⏳ *Cooldown Active*\n\n' +
+        `Wait ${cooldownRemaining} seconds before fix number again.`,
         { parse_mode: 'Markdown' },
       );
       return;
@@ -376,9 +376,9 @@ export const handleUserFixNomorStart = async (ctx) => {
     const template = await getEmailTemplate();
     if (!template) {
       await ctx.reply(
-        '❌ *Fitur Belum Tersedia*\n\n' +
-        '⚠️ Owner belum setting template email.\n\n' +
-        '💡 Hubungi owner dulu buat aktifin fitur ini.',
+        '❌ *Feature Not Available*\n\n' +
+        '⚠️ Owner has not set email template.\n\n' +
+        '💡 Contact owner to activate this feature.',
         { parse_mode: 'Markdown' },
       );
       return;
@@ -387,25 +387,25 @@ export const handleUserFixNomorStart = async (ctx) => {
     const emailData = await getUserEmail(userId);
     if (!emailData) {
       await ctx.reply(
-        '❌ *Email Belum Diatur*\n\n' +
-        '⚠️ Setup email dulu pake:\n' +
-        '📧 Tombol *Atur Email*\n\n' +
-        '💡 Butuh Gmail + App Password buat pake fitur ini.',
+        '❌ *Email Not Configured*\n\n' +
+        '⚠️ Setup email first using:\n' +
+        '📧 *Email Settings* button\n\n' +
+        '💡 Requires Gmail + App Password to use this feature.',
         { parse_mode: 'Markdown' },
       );
       return;
     }
 
-    const message = '🔧 *Fix Nomor*\n\n' +
+    const message = '🔧 *Fix Number*\n\n' +
       `📧 Email: \`${emailData.email}\`\n` +
-      `👤 Nama: \`${emailData.nama}\`\n\n` +
-      '*📱 Kirim nomor yang mau di-fix:*\n\n' +
+      `👤 Name: \`${emailData.nama}\`\n\n` +
+      '*📱 Send number to fix:*\n\n' +
       '*Format:*\n' +
-      '• Pake kode negara: `628123456789`\n' +
-      '• Tanpa plus: `628123456789`\n\n' +
-      '*Contoh:*\n' +
+      '• Use country code: `628123456789`\n' +
+      '• Without plus: `628123456789`\n\n' +
+      '*Example:*\n' +
       '`628123456789`\n\n' +
-      '💡 Email bakal otomatis dikirim ke support WhatsApp';
+      '💡 Email will be automatically sent to WhatsApp support';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -414,10 +414,10 @@ export const handleUserFixNomorStart = async (ctx) => {
 
     ctx.session.fixingNomor = true;
   } catch (error) {
-    log.error({ error }, 'Error in user fix nomor start');
+    log.error({ error }, 'Error in user fix number start');
     const user = await getUser(ctx.from?.id);
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
-    await ctx.reply('❌ Gagal mulai fix nomor', {
+    await ctx.reply('❌ Failed to start fix number', {
       reply_markup: menu,
     });
   }
@@ -433,8 +433,8 @@ export const handleUserFixNomorInput = async (ctx, text) => {
     if (cooldownRemaining > 0) {
       ctx.session.fixingNomor = false;
       await ctx.reply(
-        '⏳ *Cooldown Aktif*\n\n' +
-        `Tunggu ${cooldownRemaining} detik lagi sebelum fix nomor lagi.`,
+        '⏳ *Cooldown Active*\n\n' +
+        `Wait ${cooldownRemaining} seconds before fix number again.`,
         { parse_mode: 'Markdown' },
       );
       return;
@@ -442,11 +442,11 @@ export const handleUserFixNomorInput = async (ctx, text) => {
 
     if (!/^\d{10,15}$/.test(nomor)) {
       await ctx.reply(
-        '❌ *Nomor Ga Valid*\n\n' +
+        '❌ *Invalid Number*\n\n' +
         'Format: `628123456789`\n' +
-        '• Cuma angka\n' +
-        '• 10-15 karakter\n' +
-        '• Tanpa spasi atau simbol',
+        '• Only digits\n' +
+        '• 10-15 characters\n' +
+        '• No spaces or symbols',
         { parse_mode: 'Markdown' },
       );
       return;
@@ -454,19 +454,19 @@ export const handleUserFixNomorInput = async (ctx, text) => {
 
     const emailData = await getUserEmail(userId);
     if (!emailData) {
-      await ctx.reply('❌ Konfigurasi email ga ketemu');
+      await ctx.reply('❌ Email configuration not found');
       ctx.session.fixingNomor = false;
       return;
     }
 
     const template = await getEmailTemplate();
     if (!template) {
-      await ctx.reply('❌ Template email belum diatur');
+      await ctx.reply('❌ Email template not set yet');
       ctx.session.fixingNomor = false;
       return;
     }
 
-    await ctx.reply('⏳ Ngirim email ke support WhatsApp...');
+    await ctx.reply('⏳ Sending email to WhatsApp support...');
 
     const emailBody = template
       .replace(/{nama}/g, emailData.nama)
@@ -494,12 +494,12 @@ export const handleUserFixNomorInput = async (ctx, text) => {
     const user = await getUser(userId);
 
     await ctx.reply(
-      '✅ *Email Berhasil Dikirim!*\n\n' +
+      '*Email Successfully Sent!*\n\n' +
       `📱 Nomor: \`${nomor}\`\n` +
-      `📧 Dari: \`${emailData.email}\`\n` +
-      '📩 Ke: `support@support.whatsapp.com`\n\n' +
-      '⏰ Support WhatsApp bakal proses request kamu.\n' +
-      '💡 Cek email buat balasan dari WhatsApp.',
+      `📧 From: \`${emailData.email}\`\n` +
+      '📩 To: `support@support.whatsapp.com`\n\n' +
+      '⏰ WhatsApp Support will process your request.\n' +
+      '💡 Check email for reply from WhatsApp.',
       {
         parse_mode: 'Markdown',
         reply_markup: user?.role === 'owner' ? ownerMainMenu() : userMainMenu(),
@@ -508,7 +508,7 @@ export const handleUserFixNomorInput = async (ctx, text) => {
 
     log.info(`Fix nomor email sent for user ${userId}, number: ${nomor}`);
   } catch (error) {
-    log.error({ error }, 'Error in user fix nomor input');
+    log.error({ error }, 'Error in user fix number input');
 
     ctx.session.fixingNomor = false;
 
@@ -517,17 +517,17 @@ export const handleUserFixNomorInput = async (ctx, text) => {
 
     if (error.code === 'EAUTH') {
       await ctx.reply(
-        '❌ *Autentikasi Email Gagal*\n\n' +
-        'Kredensial email kamu mungkin udah expired.\n\n' +
-        '💡 Setup ulang email pake:\n' +
-        '📧 Tombol *Atur Email*',
+        '❌ *Email Authentication Failed*\n\n' +
+        'Your email credentials may have expired.\n\n' +
+        '💡 Re-setup email using:\n' +
+        '📧 *Email Settings* button',
         {
           parse_mode: 'Markdown',
           reply_markup: menu,
         },
       );
     } else {
-      await ctx.reply('❌ Gagal kirim email. Coba lagi ya.', {
+      await ctx.reply('❌ Failed to send email. Try again.', {
         reply_markup: menu,
       });
     }

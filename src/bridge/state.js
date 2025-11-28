@@ -53,7 +53,7 @@ class StateManager {
   async notifyPairingSuccess() {
     if (this.pairingContext && this.isPairingFlow) {
       try {
-        const message = '✅ *VOLKSBOT Connected!*\n\n' +
+        const message = '*VOLKSBOT Connected!*\n\n' +
           `Successfully paired WhatsApp with ${this.phoneNumber}`;
         await this.pairingContext.reply(message, { parse_mode: 'Markdown' });
         log.info('Sent pairing success notification');

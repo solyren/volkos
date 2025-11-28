@@ -3,13 +3,13 @@ import { Keyboard } from 'grammy';
 // -- ownerEmailMenu --
 export const ownerEmailMenu = () => {
   return new Keyboard()
-    .text('📝 Set Template')
-    .text('👁️ Lihat Template')
+    .text('Set Template')
+    .text('View Template')
     .row()
-    .text('🗑️ Hapus Template')
-    .text('📧 Setup Email')
+    .text('Delete Template')
+    .text('Setup Email')
     .row()
-    .text('🔧 Fix Nomor')
-    .text('🔙 Kembali')
+    .text('Fix Number')
+    .text('Back')
     .resized();
 };

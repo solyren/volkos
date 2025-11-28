@@ -9,8 +9,8 @@ const log = createLogger('ConvertXlsx');
 export const handleConvertXlsxStart = async (ctx) => {
   try {
     await ctx.reply(
-      '📤 Silakan upload file .xlsx yang ingin dikonversi ke .txt\n\n' +
-      'Aku akan mengekstrak hanya kolom "Number" dan mengkonversi ke file .txt',
+      '📤 Please upload .xlsx file to convert to .txt\n\n' +
+      'I will extract only "Number" column and convert to .txt file',
       { reply_markup: { remove_keyboard: true } },
     );
     ctx.session.convertingXlsx = true;
@@ -27,7 +27,7 @@ export const handleXlsxFileInput = async (ctx) => {
 
     if (cooldownCheck.onCooldown) {
       await ctx.reply(
-        `⏳ Tunggu ${cooldownCheck.remainingSeconds} detik sebelum convert lagi`,
+        `Processing: Wait ${cooldownCheck.remainingSeconds} seconds before converting again`,
       );
       return;
     }
@@ -36,11 +36,11 @@ export const handleXlsxFileInput = async (ctx) => {
     const fileName = ctx.message.document.file_name;
 
     if (!fileName.toLowerCase().endsWith('.xlsx')) {
-      await ctx.reply('❌ File harus berformat .xlsx');
+      await ctx.reply('⚠️ File must be .xlsx format');
       return;
     }
 
-    await ctx.reply('⏳ Processing file...');
+    await ctx.reply('Processing: Processing file...');
 
     const file = await ctx.api.getFile(fileId);
     const baseUrl = 'https://api.telegram.org/file/bot';
@@ -65,7 +65,7 @@ export const handleXlsxFileInput = async (ctx) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     if (!data || data.length === 0) {
-      await ctx.reply('❌ File tidak memiliki data atau format tidak sesuai');
+      await ctx.reply('⚠️ File has no data or invalid format');
       ctx.session.convertingXlsx = false;
       return;
     }
@@ -90,7 +90,7 @@ export const handleXlsxFileInput = async (ctx) => {
     }
 
     if (numbersSet.size === 0) {
-      await ctx.reply('❌ Tidak ada nomor valid (>= 5 digit) yang ditemukan di file');
+      await ctx.reply('⚠️ No valid numbers (>= 5 digits) found in file');
       ctx.session.convertingXlsx = false;
       return;
     }
@@ -103,7 +103,7 @@ export const handleXlsxFileInput = async (ctx) => {
     await ctx.replyWithDocument(
       new InputFile(txtBuffer, txtFileName),
       {
-        caption: `✅ Konversi berhasil!\n\n📊 Total nomor unik: ${uniqueNumbers.length}`,
+        caption: `Conversion successful!\n\n📊 Total unique numbers: ${uniqueNumbers.length}`,
       },
     );
 
@@ -112,9 +112,9 @@ export const handleXlsxFileInput = async (ctx) => {
     log.error({ error }, 'Error in handleXlsxFileInput');
     const errorMsg = error?.message || 'Unknown error';
     if (errorMsg.includes('timeout')) {
-      await ctx.reply('⏱️ Timeout saat download file. Coba lagi dengan file yang lebih kecil.');
+      await ctx.reply('⏱️ Timeout while downloading file. Try again with a smaller file.');
     } else {
-      await ctx.reply('❌ Terjadi error saat process file');
+      await ctx.reply('⚠️ Error occurred while processing file');
     }
     ctx.session.convertingXlsx = false;
   }

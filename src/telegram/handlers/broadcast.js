@@ -7,12 +7,12 @@ const log = createLogger('TelegramBroadcast');
 // -- handleBroadcastStart --
 export const handleBroadcastStart = async (ctx) => {
   try {
-    const message = '📢 *Pesan Siaran*\n\n' +
-      'Kirim pesan yang ingin kamu siarkan ke semua user.\n\n' +
-      '*Catatan:*\n' +
-      '• Hanya pesan teks\n' +
-      '• Akan dikirim ke semua user aktif\n' +
-      '• Mendukung format Markdown';
+    const message = '*Broadcast Message*\n\n' +
+      'Send the message you want to broadcast to all users.\n\n' +
+      '*Note:*\n' +
+      '• Text messages only\n' +
+      '• Will be sent to all active users\n' +
+      '• Supports Markdown formatting';
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
@@ -35,7 +35,7 @@ export const handleBroadcastMessage = async (ctx) => {
     const broadcastText = ctx.message.text;
 
     if (!broadcastText || broadcastText.trim() === '') {
-      await ctx.reply('❌ Pesan kosong. Silakan kirim pesan yang valid.');
+      await ctx.reply('Message is empty. Please send a valid message.');
       ctx.session.waitingForBroadcast = false;
       return;
     }
@@ -44,7 +44,7 @@ export const handleBroadcastMessage = async (ctx) => {
     const activeUsers = users.filter((u) => u.isActive && u.userId !== String(ctx.from?.id));
 
     if (activeUsers.length === 0) {
-      await ctx.reply('❌ Tidak ada user aktif untuk disiarkan.', {
+      await ctx.reply('No active users to broadcast to.', {
         reply_markup: ownerMainMenu(),
       });
       ctx.session.waitingForBroadcast = false;
@@ -52,9 +52,9 @@ export const handleBroadcastMessage = async (ctx) => {
     }
 
     await ctx.reply(
-      '📢 *Menyiarkan...*\n\n' +
-      `Mengirim ke ${activeUsers.length} user di background.\n\n` +
-      'Kamu akan menerima ringkasan saat selesai.',
+      '*Broadcasting...*\n\n' +
+      `Sending to ${activeUsers.length} users in background.\n\n` +
+      'You will receive a summary when complete.',
       {
         parse_mode: 'Markdown',
         reply_markup: ownerMainMenu(),
@@ -81,10 +81,10 @@ export const handleBroadcastMessage = async (ctx) => {
         }
       }
 
-      const resultMessage = '✅ *Siaran Selesai!*\n\n' +
-        `✅ Terkirim: ${successCount}\n` +
-        `❌ Gagal: ${failCount}\n` +
-        `📊 Total: ${activeUsers.length}`;
+      const resultMessage = '*Broadcast Complete*\n\n' +
+        `Sent: ${successCount}\n` +
+        `Failed: ${failCount}\n` +
+        `Total: ${activeUsers.length}`;
 
       await ctx.api.sendMessage(ctx.from.id, resultMessage, {
         parse_mode: 'Markdown',
@@ -94,7 +94,7 @@ export const handleBroadcastMessage = async (ctx) => {
     }, 100);
   } catch (error) {
     log.error({ error }, 'Error handling broadcast message');
-    await ctx.reply('❌ Siaran gagal. Silakan coba lagi.', {
+    await ctx.reply('Broadcast failed. Please try again.', {
       reply_markup: ownerMainMenu(),
     });
     ctx.session.waitingForBroadcast = false;

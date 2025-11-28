@@ -19,22 +19,22 @@ export const handleStatusCommand = async (ctx) => {
 
     if (!user) {
       const menu = ownerMainMenu();
-      await ctx.reply('❌ Profil user tidak ditemukan', {
+      await ctx.reply('⚠️ User profile not found', {
         reply_markup: menu,
       });
       return;
     }
 
     const whatsappConnected = isUserSocketConnected(userId);
-    const role = user.role === 'owner' ? 'PEMILIK' : 'PENGGUNA';
-    const phoneStatus = user.whatsappPhone ? `✅ ${user.whatsappPhone}` : '❌ Belum pair';
-    const connectionStatus = whatsappConnected ? '✅ Connected' : '❌ Disconnected';
+    const role = user.role === 'owner' ? 'OWNER' : 'USER';
+    const phoneStatus = user.whatsappPhone ? `${user.whatsappPhone}` : '⚠️ Not paired';
+    const connectionStatus = whatsappConnected ? 'Connected' : '⚠️ Disconnected';
 
-    const message = '📊 *Status Lo:*\n\n' +
-      `Peran: *${role}*\n` +
+    const message = '📊 *Your Status:*\n\n' +
+      `Role: *${role}*\n` +
       `WhatsApp: ${phoneStatus}\n` +
-      `Koneksi: ${connectionStatus}\n` +
-      `Aktif: ${user.isActive ? '✅' : '❌'}`;
+      `Connection: ${connectionStatus}\n` +
+      `Active: ${user.isActive ? 'Active' : 'Inactive'}`;
 
     const menu = user.role === 'owner' ? ownerMainMenu() : userMainMenu();
     await ctx.reply(message, {
@@ -45,7 +45,7 @@ export const handleStatusCommand = async (ctx) => {
   } catch (error) {
     log.error({ error }, 'Error in status command');
     const menu = ownerMainMenu();
-    await ctx.reply('❌ Gagal mengambil status', {
+    await ctx.reply('⚠️ Failed to retrieve status', {
       reply_markup: menu,
     });
   }
@@ -87,24 +87,24 @@ export const handleStartCommand = async (ctx) => {
     let thumbnail = '';
 
     if (user.role === 'owner') {
-      message = '👑 *Selamat Datang, Owner!*\n\n' +
-        '✨ Lo punya *akses unlimited* ke semua fitur.\n\n' +
-        '💼 *Panel Kontrol:*\n' +
-        '• Kelola semua user\n' +
-        '• Setting sistem\n' +
-        '• Kirim broadcast\n' +
-        '• Akses bot penuh\n\n' +
-        '💡 Pilih menu di bawah:';
+      message = '*Welcome, Owner*\n\n' +
+        'You have *unlimited access* to all features.\n\n' +
+        '*Control Panel:*\n' +
+        '• Manage all users\n' +
+        '• Configure system settings\n' +
+        '• Send broadcast messages\n' +
+        '• Full bot administration\n\n' +
+        'Select an option from the menu below.';
       thumbnail = config.thumbnails.welcomeOwner;
     } else {
-      message = '🎉 *Selamat Datang di VOLKSBOT!*\n\n' +
-        '✨ Selamat datang! Semua fitur tersedia untuk lo.\n\n' +
-        '🚀 *Fitur:*\n' +
-        '• Sambung WhatsApp\n' +
-        '• Cek bio (bulk turbo)\n' +
-        '• Full akses koneksi\n' +
-        '• Support prioritas\n\n' +
-        '👇 Pilih menu:';
+      message = '*Welcome to VOLKSBOT*\n\n' +
+        'All features are available for your use.\n\n' +
+        '*Features:*\n' +
+        '• Connect WhatsApp account\n' +
+        '• Check bio information (bulk support)\n' +
+        '• Full connection access\n' +
+        '• Priority support\n\n' +
+        'Select an option from the menu below.';
       thumbnail = config.thumbnails.welcomeUser;
     }
 
@@ -144,37 +144,37 @@ export const handleHelpCommand = async (ctx) => {
     let message = '';
 
     if (user?.role === 'owner') {
-      message = '*VOLKOS Bot - Panduan Pemilik*\n\n' +
-        '*Fitur Pemilik:*\n' +
-        '👥 Lihat User - Daftar semua user dengan status\n' +
-        '➕ Tambah User - Buat user baru\n' +
-        '📊 Status Sistem - Lihat statistik sistem\n' +
-        '📢 Siaran - Kirim pesan ke semua user\n' +
-        '📱 Pairing - Sambungkan akun WhatsApp\n' +
-        '🔍 Cek Bio - Cek bio WhatsApp (bulk)\n\n' +
-        '*Tambah User:*\n' +
-        '• Kirim ID user yang ingin ditambahkan\n' +
-        '• Pilih peran: 👤 Pengguna atau 👑 Pemilik\n\n' +
-        '*Cara Pakai Cek Bio:*\n' +
-        '• Kirim 1 nomor → Cek tunggal\n' +
-        '• Kirim banyak nomor → Cek bulk (mode turbo)\n' +
-        '• Upload file .txt → Cek bulk\n' +
-        '• Hasil: ≤10 (pesan), >10 (file)\n\n' +
-        '*💡 Tips:* Gunakan tombol 🔙 Batal kapan saja untuk keluar';
+      message = '*VOLKSBOT - Owner Guide*\n\n' +
+        '*Owner Features:*\n' +
+        '• *View Users* - List all users with status\n' +
+        '• *Add User* - Create new user accounts\n' +
+        '• *System Status* - View system statistics\n' +
+        '• *Broadcast* - Send messages to all users\n' +
+        '• *Pair WhatsApp* - Connect WhatsApp account\n' +
+        '• *Check Bio* - Check WhatsApp bio (bulk support)\n\n' +
+        '*Adding Users:*\n' +
+        '• Send the user ID you wish to add\n' +
+        '• Select role: User or Owner\n\n' +
+        '*Using Check Bio:*\n' +
+        '• Send 1 number → Single check\n' +
+        '• Send multiple numbers → Bulk check\n' +
+        '• Upload .txt file → Bulk check from file\n' +
+        '• Results: ≤10 (message), >10 (file)\n\n' +
+        '*Tip:* Use the Cancel button anytime to exit';
     } else {
-      message = '*VOLKOS Bot - Panduan Pengguna*\n\n' +
-        '*Fitur Tersedia:*\n' +
-        '📱 Sambungkan WhatsApp - Hubungkan akun WhatsApp kamu\n' +
-        '📊 Status - Cek status koneksi kamu\n' +
-        '🔍 Cek Bio - Cek satu atau banyak nomor\n' +
-        '❌ Putuskan - Hapus sambungan WhatsApp\n\n' +
-        '*Cara Pakai Cek Bio:*\n' +
-        '• Kirim 1 nomor → Cek tunggal\n' +
-        '• Kirim banyak nomor → Cek bulk (mode turbo)\n' +
-        '• Upload file .txt → Cek bulk\n' +
-        '• ≤10 nomor (teks) → Hasil dalam pesan\n' +
-        '• >10 nomor ATAU file → 2 file .txt\n\n' +
-        '*💡 Tips:* Gunakan tombol 🔙 Batal kapan saja untuk keluar';
+      message = '*VOLKSBOT - User Guide*\n\n' +
+        '*Available Features:*\n' +
+        '• *Pair WhatsApp* - Connect your WhatsApp account\n' +
+        '• *Status* - Check your connection status\n' +
+        '• *Check Bio* - Check single or multiple numbers\n' +
+        '• *Disconnect* - Remove WhatsApp connection\n\n' +
+        '*Using Check Bio:*\n' +
+        '• Send 1 number → Single check\n' +
+        '• Send multiple numbers → Bulk check\n' +
+        '• Upload .txt file → Bulk check from file\n' +
+        '• ≤10 numbers (text) → Results in message\n' +
+        '• >10 numbers OR file → 2 .txt files\n\n' +
+        '*Tip:* Use the Cancel button anytime to exit';
     }
 
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
@@ -185,7 +185,7 @@ export const handleHelpCommand = async (ctx) => {
   } catch (error) {
     log.error({ error }, 'Error in help command');
     const menu = ownerMainMenu();
-    await ctx.reply('❌ Gagal memuat bantuan', {
+    await ctx.reply('Failed to load help information', {
       reply_markup: menu,
     });
   }

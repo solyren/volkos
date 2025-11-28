@@ -17,7 +17,7 @@ export const handlePairCommand = async (ctx) => {
 
     if (user?.whatsappPaired) {
       await ctx.reply(
-        '❌ Lo udah pair nomor WhatsApp. Pencet tombol ❌ Disconnect dulu.',
+        '⚠️ You have already paired WhatsApp. Press the ⚠️ Disconnect button first.',
       );
       return;
     }
@@ -26,8 +26,8 @@ export const handlePairCommand = async (ctx) => {
     await deleteUserAuth(userId);
     socketPool.removeSocket(userId);
 
-    const msg = 'Kirim nomor WhatsApp kamu tanda tanda + ' +
-      '(contoh: 62812345678, 1234567890, 442071838750):';
+    const msg = 'Send your WhatsApp number starting with country code ' +
+      '(example: 62812345678, 1234567890, 442071838750):';
     await ctx.reply(msg, {
       reply_markup: cancelKeyboard(),
     });
@@ -52,8 +52,8 @@ export const handlePhoneInput = async (ctx) => {
 
     if (!isValidPhoneNumber(phone)) {
       await ctx.reply(
-        '❌ Format nomor ga valid. Kirim dengan kode negara ' +
-        '(contoh: 62812345678 atau 1234567890).',
+        '⚠️ Invalid number format. Send with country code ' +
+        '(example: 62812345678 or 1234567890).',
         {
           reply_markup: cancelKeyboard(),
         },
@@ -62,7 +62,7 @@ export const handlePhoneInput = async (ctx) => {
       return;
     }
 
-    await ctx.reply('⏳ Nyiapin koneksi WhatsApp...');
+    await ctx.reply('Processing: Preparing WhatsApp connection...');
 
     const pairingResult = await requestPairingCodeForUser(userId, phone);
 
@@ -84,7 +84,7 @@ export const handlePhoneInput = async (ctx) => {
       const code = pairingResult.code;
       log.info(`Pairing code sent for user ${userId}: ${phone}: ${code}`);
     } else {
-      await ctx.reply('❌ Gagal generate pairing code. Coba lagi.', {
+      await ctx.reply('⚠️ Failed to generate pairing code. Please try again.', {
         reply_markup: menu,
       });
     }
@@ -112,7 +112,7 @@ export const handleDisconnectCommand = async (ctx) => {
     const { disconnectUserSocket } = await import('../../whatsapp/socket-pool.js');
     await disconnectUserSocket(userId);
     socketPool.clearPairingCode(userId);
-    await ctx.reply('✅ WhatsApp berhasil di-disconnect.', {
+    await ctx.reply('WhatsApp successfully disconnected.', {
       reply_markup: menu,
     });
     log.info(`WhatsApp disconnected for user ${userId}`);

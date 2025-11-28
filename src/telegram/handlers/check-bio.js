@@ -2,7 +2,7 @@ import PQueue from 'p-queue';
 import { InputFile } from 'grammy';
 import { createLogger } from '../../logger.js';
 import { getUserSocket } from '../../whatsapp/socket-pool.js';
-import { fetchBioForUserOptimized } from '../../whatsapp/utils-optimized.js';
+import { fetchBioForUser } from '../../whatsapp/utils.js';
 import { formatErrorMessage } from '../utils.js';
 import { getUser } from '../../db/users.js';
 import { checkCooldown } from '../../db/cooldown.js';
@@ -101,7 +101,7 @@ const readFileContent = async (ctx, fileId) => {
     const content = await response.text();
 
     if (!content || content.trim().length === 0) {
-      throw new Error('File kosong');
+      throw new Error('Empty file');
     }
 
     return content;
@@ -111,7 +111,7 @@ const readFileContent = async (ctx, fileId) => {
       stack: error.stack,
       fileId,
     }, 'Failed to read file content');
-    throw new Error(`Gagal baca file: ${error.message}`);
+    throw new Error(`Failed to read file: ${error.message}`);
   }
 };
 
@@ -144,7 +144,7 @@ const processBulkBioAdvanced = async (
   if (!noProgress) {
     progressMsg = await ctx.reply(
       `🚀 Processing ${total} numbers...\n` +
-      '⏳ Optimized mode (20/sec start)...\n' +
+      'Processing: Optimized mode (20/sec start)...\n' +
       `📊 0/${total} (0%)\n` +
       '⚡ Parallel API + Smart rate limiting',
     );
@@ -161,9 +161,9 @@ const processBulkBioAdvanced = async (
 
     const progressText =
       `🚀 Processing ${total} numbers...\n` +
-      `✅ Ada Bio: ${results.hasBio.length}\n` +
-      `⚪ Gak Ada Bio: ${results.noBio.length}\n` +
-      `❌ Tidak Terdaftar: ${results.unregistered.length}\n` +
+      `Has Bio: ${results.hasBio.length}\n` +
+      `⚪ No Bio: ${results.noBio.length}\n` +
+      `⚠️ Unregistered: ${results.unregistered.length}\n` +
       `⏸️ Rate Limited: ${results.rateLimit.length}\n` +
       `📊 ${processed}/${total} (${percent}%)\n` +
       `⚡ Rate: ${rateLimiter.currentRate}/sec | Speed: ${speed.toFixed(1)}/sec\n` +
@@ -186,7 +186,7 @@ const processBulkBioAdvanced = async (
   const fetchBioAdaptive = async (number, userIdContext) => {
     return cache.getOrFetch(number, async () => {
       try {
-        const result = await fetchBioForUserOptimized(socket, number, true, userIdContext);
+        const result = await fetchBioForUser(socket, number, true, userIdContext);
 
         if (result.category === 'hasBio') {
           results.hasBio.push({
@@ -361,10 +361,10 @@ const generateBioTxt = (results) => {
   });
 
   if (Object.keys(yearStats).length > 0) {
-    lines.push('=== STATISTIK TAHUN BIO DI-SET ===');
+    lines.push('=== BIO SET YEAR STATISTICS ===');
     const sortedYears = Object.keys(yearStats).sort((a, b) => b - a);
     sortedYears.forEach(year => {
-      lines.push(`${year}: ${yearStats[year]} bio`);
+      lines.push(`${year}: ${yearStats[year]} bios`);
     });
   }
 
@@ -440,16 +440,16 @@ const generateEmailTxt = (results) => {
 
 // -- generateRemainingNumbersTxt --
 const generateRemainingNumbersTxt = (remainingNumbers) => {
-  const lines = ['=== NOMOR YANG BELUM DIPROSES ==='];
-  lines.push(`Total: ${remainingNumbers.length} nomor`);
+  const lines = ['=== UNPROCESSED NUMBERS ==='];
+  lines.push(`Total: ${remainingNumbers.length} numbers`);
   lines.push('');
-  lines.push('Kirim ulang nomor di bawah untuk lanjut check bio:');
+  lines.push('Resend the numbers below to continue bio check:');
   lines.push('');
   remainingNumbers.forEach((phone) => {
     lines.push(phone);
   });
   lines.push('');
-  lines.push('--- COPY DARI SINI ---');
+  lines.push('--- COPY FROM HERE ---');
   return lines.join('\n');
 };
 
@@ -462,8 +462,8 @@ export const handleCheckBioCommand = async (ctx) => {
     const cooldown = await checkCooldown(userId, 'checkbio', 20);
     if (cooldown.onCooldown) {
       await ctx.reply(
-        '⏳ *Cooldown Aktif*\n\n' +
-        `Tunggu ${cooldown.remainingSeconds} detik lagi sebelum check bio lagi.`,
+        'Processing: *Cooldown Active*\n\n' +
+        `Wait ${cooldown.remainingSeconds} seconds before check bio again.`,
         { parse_mode: 'Markdown' },
       );
       return;
@@ -472,28 +472,28 @@ export const handleCheckBioCommand = async (ctx) => {
     const user = await getUser(userId);
 
     if (!user || !user.whatsappPaired) {
-      await ctx.reply('❌ Lo perlu pair WhatsApp dulu. Tekan tombol 📱 Pair WhatsApp.');
+      await ctx.reply('⚠️ You need to pair WhatsApp first. Press the 📱 Pair WhatsApp button.');
       return;
     }
 
     log.info(`[CHECK-BIO] User ${userId} is paired, showing options`);
     const msg = '🔍 *Check Bio*\n\n' +
-      '*Nomor Tunggal:*\n' +
-      'Kirim 1 nomor telepon\n' +
-      'Contoh: `6281234567890`\n\n' +
-      '*Banyak Nomor:*\n' +
-      'Kirim nomor (satu per baris)\n' +
-      'Contoh:\n' +
+      '*Single Number:*\n' +
+      'Send 1 phone number\n' +
+      'Example: `6281234567890`\n\n' +
+      '*Multiple Numbers:*\n' +
+      'Send numbers (one per line)\n' +
+      'Example:\n' +
       '```\n' +
       '6281234567890\n' +
       '6289876543210\n' +
       '```\n\n' +
       '*Upload File:*\n' +
-      'Upload file .txt yang isi nomor\n\n' +
-      '💡 *Logika Output:*\n' +
-      '• ≤10 nomor (text) → Pesan Telegram\n' +
-      '• >10 nomor → 2 file .txt\n' +
-      '• Upload file → 2 file .txt';
+      'Upload file .txt containing numbers\n' +
+      '💡 *Output Logic:*\n' +
+      '• ≤10 numbers (text) → Telegram Message\n' +
+      '• >10 numbers → 2 .txt files\n' +
+      '• Upload file → 2 .txt files';
 
     await ctx.reply(msg, {
       parse_mode: 'Markdown',
@@ -539,14 +539,14 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
     const noBioBizCount = results.noBio.filter(r => r.isBusiness).length;
     const totalBizCount = bioBizCount + noBioBizCount;
 
-    let summaryMsg = `✅ *Bio:* ${results.hasBio.length}\n` +
+    let summaryMsg = `*Bio:* ${results.hasBio.length}\n` +
       `⚪ *No bio:* ${results.noBio.length}\n` +
-      `🌐 *Ada Website:* ${results.hasWebsite.length}\n` +
-      `📧 *Ada Email:* ${results.hasEmail.length}\n` +
-      `❌ *Not register:* ${results.unregistered.length + results.rateLimit.length}`;
+      `🌐 *Has Website:* ${results.hasWebsite.length}\n` +
+      `📧 *Has Email:* ${results.hasEmail.length}\n` +
+      `⚠️ *Not register:* ${results.unregistered.length + results.rateLimit.length}`;
 
     if (totalBizCount > 0) {
-      summaryMsg += `\n\n💼 *WA Business total:* ${totalBizCount}`;
+      summaryMsg += `\n\n💼 *Total WA Business:* ${totalBizCount}`;
     }
 
     if (numbersToProcess.length <= 10 && !isFromFile && remainingNumbers.length === 0) {
@@ -572,9 +572,9 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
 
         log.info('[YEAR-STATS] Year statistics from setAt:', yearStats);
 
-        let bioCaption = `✅ *Bio* (${results.hasBio.length})`;
+        let bioCaption = `*Bio* (${results.hasBio.length})`;
         if (bioBizCount > 0) {
-          bioCaption += `\n💼 ${bioBizCount} akun bisnis`;
+          bioCaption += `\n💼 ${bioBizCount} business accounts`;
         }
 
         if (Object.keys(yearStats).length > 0) {
@@ -602,7 +602,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
         const noBioBuffer = globalThis.Buffer.from(noBioTxt, 'utf-8');
         let noBioCaption = `⚪ *No bio* (${results.noBio.length})`;
         if (noBioBizCount > 0) {
-          noBioCaption += `\n💼 ${noBioBizCount} akun bisnis`;
+          noBioCaption += `\n💼 ${noBioBizCount} business accounts`;
         }
         await ctx.api.sendDocument(
           userId,
@@ -621,7 +621,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
           userId,
           new InputFile(websiteBuffer, `website_${Date.now()}.txt`),
           {
-            caption: `🌐 *Ada Website* (${results.hasWebsite.length})`,
+            caption: `🌐 *Has Website* (${results.hasWebsite.length})`,
             parse_mode: 'Markdown',
           },
         );
@@ -634,7 +634,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
           userId,
           new InputFile(emailBuffer, `email_${Date.now()}.txt`),
           {
-            caption: `📧 *Ada Email* (${results.hasEmail.length})`,
+            caption: `📧 *Has Email* (${results.hasEmail.length})`,
             parse_mode: 'Markdown',
           },
         );
@@ -649,9 +649,9 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
         const totalNotReg = results.unregistered.length + results.rateLimit.length;
         await ctx.api.sendDocument(
           userId,
-          new InputFile(notRegisterBuffer, `tidakterdaftar_${Date.now()}.txt`),
+          new InputFile(notRegisterBuffer, `unregistered_${Date.now()}.txt`),
           {
-            caption: `❌ *Not register* (${totalNotReg})`,
+            caption: `⚠️ *Not register* (${totalNotReg})`,
             parse_mode: 'Markdown',
           },
         );
@@ -659,7 +659,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
 
       if (remainingNumbers.length > 0) {
         const remaining = remainingNumbers.length;
-        const caption = `📌 ${remaining} nomor belum diproses\nKirim ulang untuk lanjut`;
+        const caption = `📌 ${remaining} numbers...remaining\nSend to continue`;
         const remainingTxt = generateRemainingNumbersTxt(remainingNumbers);
         const remainingBuffer = globalThis.Buffer.from(remainingTxt, 'utf-8');
         await ctx.api.sendDocument(
@@ -671,7 +671,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
           },
         );
       } else {
-        await ctx.api.sendMessage(userId, '✅ Selesai! Pilih menu di bawah:', {
+        await ctx.api.sendMessage(userId, 'Done! Select menu below:', {
           reply_markup: menu,
         });
       }
@@ -687,7 +687,7 @@ const processBioInBackground = async (ctx, socket, numbers, userId, isFromFile) 
   } catch (error) {
     log.error({ error }, '[BG] Error in background check bio');
     try {
-      await ctx.api.sendMessage(userId, `❌ Error: ${error.message || 'Gagal cek bio'}`);
+      await ctx.api.sendMessage(userId, `⚠️ Error: ${error.message || 'Failed cek bio'}`);
     } catch (replyErr) {
       log.error({ error: replyErr }, '[BG] Failed to send error message');
     }
@@ -705,7 +705,7 @@ export const handleBioPhoneInput = async (ctx) => {
     const socket = getUserSocket(userId);
 
     if (!socket || !socket.user) {
-      await ctx.reply('❌ Koneksi WhatsApp putus. Pair lagi dong.');
+      await ctx.reply('⚠️ WhatsApp connection disconnected. Please pair again.');
       ctx.session.waitingForBioPhone = false;
       return;
     }
@@ -717,12 +717,12 @@ export const handleBioPhoneInput = async (ctx) => {
       const doc = ctx.message.document;
 
       if (!doc.file_name?.endsWith('.txt')) {
-        await ctx.reply('❌ Upload file .txt dong');
+        await ctx.reply('⚠️ Please upload a .txt file.');
         ctx.session.waitingForBioPhone = false;
         return;
       }
 
-      await ctx.reply('📥 Baca file dulu...');
+      await ctx.reply('📥 Reading file...');
       try {
         const content = await readFileContent(ctx, doc.file_id);
         numbers = parsePhoneNumbers(content);
@@ -733,7 +733,7 @@ export const handleBioPhoneInput = async (ctx) => {
           stack: fileError.stack,
           docId: doc.file_id,
         }, 'Failed to read uploaded document');
-        await ctx.reply(`❌ ${fileError.message}`);
+        await ctx.reply(`⚠️ ${fileError.message}`);
         ctx.session.waitingForBioPhone = false;
         return;
       }
@@ -741,18 +741,18 @@ export const handleBioPhoneInput = async (ctx) => {
       const doc = ctx.message.reply_to_message.document;
 
       if (!doc.file_name?.endsWith('.txt')) {
-        await ctx.reply('❌ Reply ke file .txt dong');
+        await ctx.reply('⚠️ Please reply to a .txt file.');
         ctx.session.waitingForBioPhone = false;
         return;
       }
 
-      await ctx.reply('📥 Baca file dulu...');
+      await ctx.reply('📥 Reading file...');
       try {
         const content = await readFileContent(ctx, doc.file_id);
         numbers = parsePhoneNumbers(content);
         isFromFile = true;
       } catch (fileError) {
-        await ctx.reply(`❌ Gagal baca file: ${fileError.message}`);
+        await ctx.reply(`⚠️ Failed to read file: ${fileError.message}`);
         ctx.session.waitingForBioPhone = false;
         return;
       }
@@ -761,7 +761,7 @@ export const handleBioPhoneInput = async (ctx) => {
     }
 
     if (numbers.length === 0) {
-      await ctx.reply('❌ Gak ada nomor yang valid. Kirim nomor telepon yang bener.', {
+      await ctx.reply('⚠️ No valid numbers found. Please send phone numbers correctly.', {
         reply_markup: cancelKeyboard(),
       });
       ctx.session.waitingForBioPhone = false;
@@ -772,21 +772,21 @@ export const handleBioPhoneInput = async (ctx) => {
     const menu = user?.role === 'owner' ? ownerMainMenu() : userMainMenu();
 
     if (numbers.length === 1) {
-      await ctx.reply('⏳ Ambil info bio dulu...');
+      await ctx.reply('Processing: Fetching bio information...');
 
-      const result = await fetchBioForUserOptimized(socket, numbers[0]);
+      const result = await fetchBioForUser(socket, numbers[0]);
 
       let message = '';
       let badge = '';
 
       if (result.isVerified) {
-        badge = ' ✅ [Official Business]';
+        badge = ' [Official Business]';
       } else if (result.isBusiness) {
         badge = ' 💼 [WhatsApp Business]';
       }
 
       if (result.category === 'hasBio') {
-        message = `✅ *Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
+        message = `*Bio:* \`${result.phone}\`${badge}\n${result.bio}\n_Set: ${result.setAt}_`;
 
         if (result.isBusiness) {
           const extras = [];
@@ -822,10 +822,10 @@ export const handleBioPhoneInput = async (ctx) => {
 
         log.warn(`[SINGLE] No bio for ${result.phone}`);
       } else if (result.category === 'unregistered') {
-        message = `❌ *Not register:* \`${result.phone}\``;
+        message = `⚠️ *Not register:* \`${result.phone}\``;
         log.warn(`[SINGLE] Unregistered ${result.phone}`);
       } else {
-        message = `⚠️ Error: ${result.error || 'Gagal'}`;
+        message = `⚠️ Error: ${result.error || 'Failed'}`;
         log.error(`[SINGLE] Error for ${result.phone}: ${result.error}`);
       }
 
@@ -836,13 +836,13 @@ export const handleBioPhoneInput = async (ctx) => {
     } else {
       if (numbers.length > 500) {
         await ctx.reply(
-          '⚠️ *Terlalu Banyak!*\n\n' +
-          `Lo kirim ${numbers.length} nomor\n` +
-          'Bot hanya bisa process 500 per session.\n\n' +
-          'Bot akan proses 500 nomor dulu, ' +
-          `sisanya (${numbers.length - 500} nomor) ` +
-          'akan dikembaliin dalam format teks.\n\n' +
-          'Lanjut?',
+          '⚠️ *Too Many Numbers*\n\n' +
+          `You sent ${numbers.length} numbers.\n\n` +
+          'Bot can only process 500 per session.\n\n' +
+          'Bot will process the first 500 numbers, ' +
+          `the rest (${numbers.length - 500} numbers) ` +
+          'will be returned in text format.\n\n' +
+          'Continue?',
           { reply_markup: cancelKeyboard() },
         );
         ctx.session.waitingForBioPhone = false;
@@ -850,13 +850,13 @@ export const handleBioPhoneInput = async (ctx) => {
       }
 
       await ctx.reply(
-        '⏳ *Mulai Check Bio*\n\n' +
-        `Processing ${numbers.length} nomor...\n` +
-        'Hasil akan dikirim segera setelah selesai.',
+        'Processing: *Starting Bio Check*\n\n' +
+        `Processing ${numbers.length} numbers...\n` +
+        'Results will be sent soon when complete.',
         { parse_mode: 'Markdown' },
       );
 
-      log.info(`[HANDLER] User ${userId} started check bio for ${numbers.length} nomor`);
+      log.info(`[HANDLER] User ${userId} started check bio for ${numbers.length} numbers`);
       log.info('[HANDLER] Spawning background task, returning to event loop');
 
       processBioInBackground(ctx, socket, numbers, userId, isFromFile)
@@ -874,7 +874,7 @@ export const handleBioPhoneInput = async (ctx) => {
       hasMessage: !!ctx.message,
       hasDocument: !!ctx.message?.document,
     }, 'Error handling bio phone input');
-    await ctx.reply(`❌ Error: ${error.message || 'Gagal cek bio'}`);
+    await ctx.reply(`⚠️ Error: ${error.message || 'Failed to check bio'}`);
     ctx.session.waitingForBioPhone = false;
   }
 };

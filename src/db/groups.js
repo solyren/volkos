@@ -82,7 +82,7 @@ export const getGroupVerificationMarkup = (missingGroups) => {
     keyboard.row();
   });
 
-  keyboard.text('✅ Sudah Join', 'verify_group');
+  keyboard.text('Already Joined', 'verify_group');
 
   return keyboard;
 };
@@ -93,5 +93,5 @@ export const getGroupVerificationMessage = (missingGroups) => {
     return null;
   }
 
-  return 'Harus Join Grub Terlebih Dahulu';
+  return 'You must join the group first';
 };

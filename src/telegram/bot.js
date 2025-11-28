@@ -110,14 +110,14 @@ export const createBot = () => {
 
         if (groupCheck.isMember) {
           await ctx.answerCallbackQuery({
-            text: '✅ Verifikasi berhasil! Akses diberikan.',
+            text: 'Verification successful! Access granted.',
             show_alert: false,
           });
           await ctx.deleteMessage();
           await handleStartCommand(ctx);
         } else {
           await ctx.answerCallbackQuery({
-            text: '❌ Kamu belum join semua grup. Coba lagi setelah join.',
+            text: '❌ You have not joined all required groups. Please try again after joining.',
             show_alert: true,
           });
         }
@@ -144,7 +144,7 @@ export const createBot = () => {
     try {
       const text = ctx.message.text.trim();
 
-      if (text === '🔙 Batal') {
+      if (text === 'Cancel') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.waitingForDebugPhone = false;
@@ -156,7 +156,7 @@ export const createBot = () => {
         ctx.session.fixingNomor = false;
         ctx.session.removingUser = false;
         const user = await getUser(ctx.from?.id);
-        const msg = '✅ Dibatalkan';
+        const msg = 'Cancelled';
         if (user?.role === 'owner') {
           await ctx.reply(msg, {
             reply_markup: ownerMainMenu(),
@@ -197,7 +197,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📱 Menu WA') {
+      if (text === 'WhatsApp Menu') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -205,14 +205,14 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '🔙 Kembali') {
+      if (text === 'Back') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.waitingForDebugPhone = false;
         ctx.session.adminAddUserId = undefined;
         const user = await getUser(ctx.from?.id);
         if (user?.role === 'owner') {
-          await ctx.reply('👋 Hai Owner!\n\nMau ngapain?', {
+          await ctx.reply('👋 Hello, Owner.\n\nWhat would you like to do?', {
             reply_markup: ownerMainMenu(),
           });
         }
@@ -229,21 +229,21 @@ export const createBot = () => {
       }
 
       if (ctx.session?.waitingForPhone) {
-        if (text === '🔙 Batal') {
+        if (text === 'Cancel') {
           ctx.session.waitingForPhone = false;
-          await ctx.reply('✅ Pairing dibatalkan');
+          await ctx.reply('Pairing cancelled');
           return;
         }
-        if (text !== '👤 Pengguna' && text !== '👑 Pemilik') {
+        if (text !== 'User' && text !== 'Owner') {
           await handlePhoneInput(ctx);
           return;
         }
       }
 
       if (ctx.session?.waitingForBioPhone) {
-        if (text === '🔙 Batal') {
+        if (text === 'Cancel') {
           ctx.session.waitingForBioPhone = false;
-          await ctx.reply('✅ Cek bio dibatalkan');
+          await ctx.reply('Bio check cancelled');
           return;
         }
         await handleBioPhoneInput(ctx);
@@ -284,7 +284,7 @@ export const createBot = () => {
         await deleteUser(userId);
 
         await ctx.reply(
-          '✅ *User Removed Successfully!*\n\n' +
+          '*User Removed Successfully!*\n\n' +
           `User ID: \`${userId}\`\n` +
           `Role: *${targetUser.role.toUpperCase()}*\n\n` +
           '🔌 WhatsApp connection disconnected\n' +
@@ -302,8 +302,8 @@ export const createBot = () => {
 
       if (ctx.session?.adminAddUserId && typeof ctx.session.adminAddUserId === 'number') {
         const roleMap = {
-          '👤 Pengguna': 'user',
-          '👑 Pemilik': 'owner',
+          'User': 'user',
+          'Owner': 'owner',
         };
 
         const role = roleMap[text];
@@ -333,7 +333,7 @@ export const createBot = () => {
         await notifyUserAdded(ctx.api, String(userId), role, null);
 
         await ctx.reply(
-          '✅ User created successfully!\n\n' +
+          'User created successfully!\n\n' +
           `ID: \`${userId}\`\n` +
           `Role: *${role.toUpperCase()}*\n\n` +
           '📩 Notification sent to user.',
@@ -368,7 +368,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📢 Broadcast') {
+      if (text === 'Broadcast') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -376,7 +376,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '👥 Lihat User') {
+      if (text === 'View Users') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -385,7 +385,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '➕ Tambah User') {
+      if (text === 'Add User') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -393,7 +393,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📊 Status Sistem') {
+      if (text === 'System Status') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -403,7 +403,7 @@ export const createBot = () => {
 
 
 
-      if (text === '🗑️ Hapus User') {
+      if (text === 'Remove User') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -413,7 +413,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📱 Pair WhatsApp') {
+      if (text === 'Pair WhatsApp') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -421,7 +421,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📊 Status') {
+      if (text === 'Status') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -429,7 +429,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '❌ Disconnect') {
+      if (text === 'Disconnect') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -437,7 +437,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '❓ Help') {
+      if (text === 'Help') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -445,7 +445,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '🔍 Cek Bio') {
+      if (text === 'Check Bio') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -453,7 +453,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📧 Menu Email') {
+      if (text === 'Email Menu') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -461,7 +461,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📄 Convert XLSX') {
+      if (text === 'Convert XLSX') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -469,22 +469,22 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '📝 Set Template') {
+      if (text === 'Set Template') {
         await handleOwnerSetTemplateStart(ctx);
         return;
       }
 
-      if (text === '👁️ Lihat Template') {
+      if (text === 'View Template') {
         await handleOwnerViewTemplate(ctx);
         return;
       }
 
-      if (text === '🗑️ Hapus Template') {
+      if (text === 'Delete Template') {
         await handleOwnerDeleteTemplate(ctx);
         return;
       }
 
-      if (text === '📧 Setup Email') {
+      if (text === 'Setup Email') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;
@@ -492,7 +492,7 @@ export const createBot = () => {
         return;
       }
 
-      if (text === '🔧 Fix Nomor') {
+      if (text === 'Fix Number') {
         ctx.session.waitingForPhone = false;
         ctx.session.waitingForBioPhone = false;
         ctx.session.adminAddUserId = undefined;

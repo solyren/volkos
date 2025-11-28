@@ -9,7 +9,7 @@ export const checkUserExists = async (ctx, next) => {
     const userId = ctx.from?.id;
 
     if (!userId) {
-      await ctx.reply('❌ Tidak dapat mengidentifikasi user');
+      await ctx.reply('❌ Cannot identify user');
       return;
     }
 
@@ -30,7 +30,7 @@ export const checkUserExists = async (ctx, next) => {
     await next();
   } catch (error) {
     log.error({ error }, 'Error in checkUserExists middleware');
-    await ctx.reply('❌ Kesalahan sistem');
+    await ctx.reply('❌ System error');
   }
 };
 
@@ -38,19 +38,19 @@ export const checkUserExists = async (ctx, next) => {
 export const checkUserActive = async (ctx, next) => {
   try {
     if (!ctx.user) {
-      await ctx.reply('❌ User belum diinisialisasi');
+      await ctx.reply('❌ User not initialized');
       return;
     }
 
     if (!ctx.user.isActive) {
-      await ctx.reply('❌ Akses lo udah dinonaktifkan. Chat owner untuk info lebih lanjut.');
+      await ctx.reply('❌ Your access has been deactivated. Chat owner for more info.');
       return;
     }
 
     await next();
   } catch (error) {
     log.error({ error }, 'Error in checkUserActive middleware');
-    await ctx.reply('❌ Kesalahan sistem');
+    await ctx.reply('❌ System error');
   }
 };
 
@@ -59,7 +59,7 @@ export const requireRole = (allowedRoles) => {
   return async (ctx, next) => {
     try {
       if (!ctx.user) {
-        await ctx.reply('❌ User belum diinisialisasi');
+        await ctx.reply('❌ User not initialized');
         return;
       }
 
@@ -67,7 +67,7 @@ export const requireRole = (allowedRoles) => {
         const userId = ctx.user.userId;
         const role = ctx.user.role;
         log.warn(`Unauthorized access attempt by user ${userId} with role ${role}`);
-        const msg = '❌ Lo ga punya akses buat command ini.';
+        const msg = '❌ You don\'t have access to this command.';
         await ctx.reply(msg);
         return;
       }
@@ -75,7 +75,7 @@ export const requireRole = (allowedRoles) => {
       await next();
     } catch (error) {
       log.error({ error }, 'Error in requireRole middleware');
-      await ctx.reply('❌ Kesalahan sistem');
+      await ctx.reply('❌ System error');
     }
   };
 };
@@ -88,13 +88,13 @@ export const requireOwner = async (ctx, next) => {
     if (ctx.from?.id !== ownerId) {
       const userId = ctx.from?.id;
       log.warn(`Unauthorized owner command attempt by user ${userId}`);
-      await ctx.reply('❌ Cuma owner yang bisa pake command ini.');
+      await ctx.reply('❌ Only owner can use this command.');
       return;
     }
 
     await next();
   } catch (error) {
     log.error({ error }, 'Error in requireOwner middleware');
-    await ctx.reply('❌ Kesalahan sistem');
+    await ctx.reply('❌ System error');
   }
 };

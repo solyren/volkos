@@ -3,25 +3,21 @@ import { Keyboard } from 'grammy';
 // -- ownerMainMenu --
 export const ownerMainMenu = () => {
   return new Keyboard()
-    .text('👥 Lihat User')
-    .text('➕ Tambah User')
+    .text('View Users')
+    .text('Add User')
     .row()
-    .text('🗑️ Hapus User')
-    .text('📊 Status Sistem')
+    .text('System Status')
+    .text('Broadcast')
     .row()
-    .text('📢 Broadcast')
-    .text('📱 Menu WA')
+    .text('WhatsApp Menu')
+    .text('Email Menu')
     .row()
-    .text('📧 Menu Email')
-    .text('📄 Convert XLSX')
+    .text('Remove User')
+    .text('Convert XLSX')
     .row()
-    .text('❓ Help')
-    .text('🔙 Batal')
-    .row()
+    .text('Help')
     .resized();
 };
-
-
 
 // -- ownerPanelMenu --
 export const ownerPanelMenu = () => {
@@ -36,33 +32,32 @@ export const mainAdminMenu = () => {
 // -- userMainMenu --
 export const userMainMenu = () => {
   return new Keyboard()
-    .text('📱 Pair WhatsApp')
-    .text('📊 Status')
+    .text('Pair WhatsApp')
+    .text('Check Bio')
     .row()
-    .text('🔍 Cek Bio')
-    .text('❌ Disconnect')
+    .text('Status')
+    .text('Setup Email')
     .row()
-    .text('📧 Setup Email')
-    .text('🔧 Fix Nomor')
+    .text('Disconnect')
+    .text('Fix Number')
     .row()
-    .text('❓ Help')
-    .text('🔙 Batal')
+    .text('Help')
     .resized();
 };
 
 // -- addUserRoleKeyboard --
 export const addUserRoleKeyboard = () => {
   return new Keyboard()
-    .text('👤 Pengguna')
-    .text('👑 Pemilik')
+    .text('User')
+    .text('Owner')
     .row()
-    .text('🔙 Batal')
+    .text('Cancel')
     .resized();
 };
 
 // -- cancelKeyboard --
 export const cancelKeyboard = () => {
   return new Keyboard()
-    .text('🔙 Batal')
+    .text('Cancel')
     .resized();
 };

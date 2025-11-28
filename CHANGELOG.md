@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/solyren/volkos/compare/volkos-v1.0.0...volkos-v1.0.1) (2025-11-28)
+
+
+### Bug Fixes
+
+* **check-bio:** fix bio yang selalu kosong dan tidak terdetect ([4662ff6](https://github.com/solyren/volkos/commit/4662ff69462d81a8fb1a8ebbc8d1044708d22905))
+* **pairing:** fix pairinh buffring ([dc045e4](https://github.com/solyren/volkos/commit/dc045e4be7bdd5eceb1676bbaa98572eaa136990))
+* **whatsapp/telegram:** resolve bio detection, update emojis and menu layout ([1089a12](https://github.com/solyren/volkos/commit/1089a12c3ba9a09ae614e3cde023a2e1de440ced))
+
 ## [1.0.0](https://github.com/solyren/volkos/compare/volkos-v0.5.0...volkos-v1.0.0) (2025-11-21)
 
 
